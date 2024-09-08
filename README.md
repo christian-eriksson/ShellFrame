@@ -20,11 +20,21 @@ Assuming that `~/.local/bin` is in your `$PATH`. You can then call the cli with
 `{{CLI_NAME}}`. Use `-h` flag to show the help for the cli and the supported
 commands.
 
+If you want completions for the cli source the completion script:
+
+```sh
+CLI_NAME={{CLI_NAME}} . {{INSTALL_PATH}}/cli-completion.bash
+```
+
+You can add this line to your `~/.bashrc`, `~/.profile`, or some other file
+which is loaded when a shell opens.
+
 ## Add Commands
 
 To add a new command to the cli, place an executable, e.g. `one.sh`, in
 the `{{INSTALL_PATH}}/commands/` directory, the `{{INSTALL_PATH}}` is the
-directory where `cli.sh` resides (i.e root directory of the repo):
+directory where `cli.sh` and `cli-completions.bash` resides (i.e root directory
+of the repo):
 
 ```txt
 cli.sh
@@ -41,7 +51,7 @@ Similarly, the `-v` flag is passed to any executable in `commands` if
 `cli.sh -v <command>` is invoked.
 
 > **NOTE:** only commands directly in the `commands` directory needs to adhere
-> to this interface. Any behavior of any potential sub-command is an 
+> to this interface. Any behavior of any potential sub-command is an
 > implementation detail left to the executables in the `commands` directory.
 
 Given that you installed the cli using `cli` as the `{{CLI_NAME}}`, you can now
@@ -49,6 +59,190 @@ call the new command with:
 
 ```sh
 cli one
+```
+
+To add sub commands to the `one` command and have them be automatically detected
+by the completion script. Add the executables in the `commands/one-commands/`
+directory:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-commands/
+  |     |-- two.js
+  |     |-- three.py
+```
+
+The sub commands `two` and `three` are then suggested if you write:
+
+```sh
+cli one {tab}{tab}
+# three  two
+```
+
+The `{tab}{tab}` just means pressing the tab-key twice. The `one.sh` script is
+responsible for executing the chosen command, and thus need to be able to find
+the sub-command script files relative to its location. If `cli one two` is
+executed, the `cli.sh` script will call `commands/one.sh two`, so `one.sh` needs
+to know what to do with `two`.
+
+### Completion files
+
+If the sub-commands are not external executables or the executables live in some
+other location, you can provide the completion hints manually by creating a
+completion file:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-commands/
+  |     |-- two.js
+  |     |-- three.py
+  |-- two
+  |-- two-completions.txt
+```
+
+Here the `two-completions.txt` is a regular text file with the following
+content:
+
+```txt
+three
+four
+```
+
+So the command `cli two` has two subcommands resulting in the following:
+
+```sh
+cli two {tab}{tab}
+# three  four
+```
+
+Again, when calling the command `cli two four` the `cli.sh` script will call
+make the following call `commands/two four`. Meaning that the executable `two`
+needs to know how to handle the input `four`.
+
+> **NOTE:** file names, excluding extensions, need to be unique within a
+> directory as this is also the command name. However, they do not need to be
+> unique to the whole directory structure.
+
+You can also create chains of completion file and trees of sub-commands. Let's
+say that `three.py` has a couple of sub-commands, `five` and `six`, and that
+`two four` has two sub-commands, `seven` and `eight`. The file tree would then
+look like:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-commands/
+  |     |-- two.js
+  |     |-- three.py
+  |     |-- three-commands/
+  |     |     |-- five.sh
+  |     |     |-- six.sh
+  |-- two
+  |-- two-completions.txt
+  |-- two-four-completions.txt
+```
+
+Where `two-four-completions.txt` looks like:
+
+```txt
+seven
+eight
+```
+
+You would then get the following completions:
+
+```sh
+cli one three {tab}{tab}
+# five  sixe
+cli two four {tab}{tab}
+# seven eight
+```
+
+And calling `cli one three five` would mean that the `cli.sh` script calls
+`commands/one.sh three five`, where `one.sh` is responsible for making sure that
+`five.sh` is called correctly (with or without calling `three.py` that is an
+implementation detail left to `one.sh`). Likewise, calling `cli two four eight`
+means that `cli.sh` calls `commands/two four eight`, where the `two` executable
+is responsible for the implementation.
+
+A command can have both a completions file and a commands directory. The
+commands directory takes precedence while searching for completion hints, which
+can make some completions files unreachable if not placed in the correct
+location. In the example below this is the context of the completions files:
+
+```txt
+# one-completions.txt
+two
+
+# one-two-completions.txt
+five
+
+# three-completions.txt
+six
+```
+
+and the following file structure:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-completions.txt
+  |-- one-two-completions.txt <-- is never found
+  |-- one-commands/
+  |     |-- three.sh
+  |     |-- three-completions.txt
+  |     |-- three-commands/
+  |     |     |-- seven.sh
+  |     |-- two-commands/
+  |     |     |-- four.sh
+```
+
+then you would get the following completions:
+
+```sh
+cli one {tab}{tab}
+# three  two
+cli one three {tab}{tab}
+# seven  six
+cli one two {tab}{tab}
+# four   <-- MISSING: 'five' from 'one-two-completions.txt'
+```
+
+So `one-two-completions.txt` is never found because `one-commands/two-commands/`
+takes precedence in the search, and since the `two-commands` directory exists
+the search doesn't backtrack to look for `one-two-completions.txt`. So the
+completion script steps into that directory in search for a completion file. If
+you still want a completions file for `one two` you can rearrange the file tree
+like so:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-completions.txt
+  |-- one-commands/
+  |     |-- three.sh
+  |     |-- three-completions.txt
+  |     |-- three-commands/
+  |     |     |-- seven.sh
+  |     |-- two-completions.txt <-- move completions file here!
+  |     |-- two-commands/
+  |     |     |-- four.sh
+```
+
+Now the search will find the `one-commands/two-completions.txt` file and also
+look for the `two-commands` directory. So now you would get this completion for
+`two`:
+
+```sh
+cli one two {tab}{tab}
+# five  four
 ```
 
 ## Global Configuration
