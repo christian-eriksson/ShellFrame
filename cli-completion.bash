@@ -2,22 +2,30 @@
 
 [ -z "$CLI_NAME" ] && echo "ERROR: could not load cli completions" && return 1
 
-_cli_completions()
-{
-    number_of_inputs="${#COMP_WORDS[@]}" # including space after last command
+_cli_completions() {
+    local filtered_words=()
+
+    for word in "${COMP_WORDS[@]}"; do
+        if [[ "$word" != -* ]]; then
+            filtered_words+=("$word")
+        fi
+    done
+
+    local number_of_inputs="${#filtered_words[@]}"
 
     # 1st (base) command is not finished
     if [ "$number_of_inputs" -lt "2" ]; then
         return
     fi
 
-    local executable_path=$(which "${COMP_WORDS[0]}")
+    local executable_path=$(which "${filtered_words[0]}")
     local script_path=$(readlink $executable_path)
     local source_dir=$(realpath $(dirname "$script_path"))
 
     # base command finished, looking for first set of sub-commands
     if [ "$number_of_inputs" -eq "2" ]; then
-        COMPREPLY=($(compgen -W "$(find "$source_dir/commands/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")" -- "${COMP_WORDS[1]}"))
+        COMPREPLY=($(compgen -W "$(find "$source_dir/commands/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")" -- "${filtered_words[1]}"))
+        return
     fi
 
     # first set of sub-commands finished, on n-th level, looking for 1+n-th
@@ -31,14 +39,14 @@ _cli_completions()
         local i=1
         local counter=1
         while [ $i -lt $nth_sub_command_level ]; do
-            if [ -d "$nth_plus_one_sub_command_dir/${COMP_WORDS[$i]}-commands" ]; then
-                nth_plus_one_sub_command_dir="$nth_plus_one_sub_command_dir/${COMP_WORDS[$i]}-commands"
+            if [ -d "$nth_plus_one_sub_command_dir/${filtered_words[$i]}-commands" ]; then
+                nth_plus_one_sub_command_dir="$nth_plus_one_sub_command_dir/${filtered_words[$i]}-commands"
                 if [ $i -lt $(($nth_sub_command_level - 1)) ]; then
-                    nth_sub_command_dir="$nth_sub_command_dir/${COMP_WORDS[$i]}-commands"
+                    nth_sub_command_dir="$nth_sub_command_dir/${filtered_words[$i]}-commands"
                 fi
                 counter=$(($counter + 1))
             else
-                command_completion_file="$command_completion_file${COMP_WORDS[$i]}-"
+                command_completion_file="$command_completion_file${filtered_words[$i]}-"
             fi
             i=$(($i + 1))
         done
@@ -48,7 +56,7 @@ _cli_completions()
             completions="$completions $(find "$nth_plus_one_sub_command_dir/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")"
         fi
 
-        current_command="${COMP_WORDS[$(($nth_sub_command_level - 1))]}"
+        current_command="${filtered_words[$(($nth_sub_command_level - 1))]}"
         sub_command_completion_file="$nth_sub_command_dir/$current_command-completions.txt"
         if [ $counter -ge $(($nth_sub_command_level - 1)) ] && [ -f "$sub_command_completion_file" ]; then
             completions="$completions $(cat "$sub_command_completion_file")"
@@ -59,7 +67,7 @@ _cli_completions()
             completions="$completions $(cat "$multi_sub_command_completion_file")"
         fi
 
-        COMPREPLY=($(compgen -W "$completions" -- "${COMP_WORDS[$nth_sub_command_level]}"))
+        COMPREPLY=($(compgen -W "$completions" -- "${filtered_words[$nth_sub_command_level]}"))
     fi
 }
 
