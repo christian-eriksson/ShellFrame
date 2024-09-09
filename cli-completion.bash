@@ -45,11 +45,20 @@ _search_completion_file() {
 _cli_completions() {
     local filtered_words=()
 
+    local word_counter="0"
+    local flag_filtered_at_position="0"
     for word in "${COMP_WORDS[@]}"; do
+        word_counter=$(($word_counter + 1))
         if [[ "$word" != -* ]]; then
             filtered_words+=("$word")
+        else
+            flag_filtered_at_position="$word_counter"
         fi
     done
+    if [ "$flag_filtered_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
+        filtered_words+=("");
+    fi
+
     local number_of_inputs="${#filtered_words[@]}"
 
     # 1st (base) command is not finished
