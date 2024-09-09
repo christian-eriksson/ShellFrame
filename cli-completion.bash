@@ -13,10 +13,10 @@ _search_completion_file() {
     local source_dir=$(realpath $(dirname "$script_path"))
 
     local file_path="$source_dir/commands/"
-    local counter=0
+    local past_first="false"
     for command in "${raw_command_chain[@]}"; do
         [ -z "$command" ] && break
-        [ "$counter" -eq 0 ] && counter=$(($counter + 1)) && continue
+        [ "$past_first" = "false" ] && past_first="true" && continue
         case "$command" in
             -*)
                 break
@@ -29,16 +29,9 @@ _search_completion_file() {
                 fi
             ;;
         esac
-        counter=$(($counter + 1))
-        if [ "$counter" -eq $(("${#raw_command_chain[@]}" -1)) ]; then
-            local second_to_last_option=$file_path
-        fi
     done
     local base_path="${file_path%commands\/}"
     file_path="$base_path$file_type.txt"
-    if [ ! -f "$file_path" ]; then
-        file_path="$second_to_last_option"
-    fi
     echo "${file_path}"
 }
 
@@ -58,7 +51,6 @@ _cli_completions() {
     if [ "$flag_filtered_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
         filtered_words+=("");
     fi
-
     local number_of_inputs="${#filtered_words[@]}"
 
     # 1st (base) command is not finished
@@ -66,13 +58,14 @@ _cli_completions() {
         return
     fi
 
+    local completion_hint="${filtered_words[-1]}"
     local executable_path=$(which "${filtered_words[0]}")
     local script_path=$(readlink $executable_path)
     local source_dir=$(realpath $(dirname "$script_path"))
 
     # base command finished, looking for first set of sub-commands
     if [ "$number_of_inputs" -eq "2" ]; then
-        COMPREPLY=($(compgen -W "$(find "$source_dir/commands/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")" -- "${filtered_words[1]}"))
+        COMPREPLY=($(compgen -W "$(find "$source_dir/commands/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")" -- "$completion_hint"))
         return
     fi
 
@@ -81,19 +74,9 @@ _cli_completions() {
     if [ "$number_of_inputs" -gt "2" ]; then
         local command_count=$(($number_of_inputs -1))
 
+        unset filtered_words[-1]
         local completions_file=($(_search_completion_file "completions" "${filtered_words[@]}"))
         local completions_directory="${completions_file%completions.txt}commands"
-        if [ ! -d "$completions_directory" ] && [ ! -f "$completions_file" ]; then
-            case "$completions_file" in
-                */)
-                    completions_directory=$completions_file
-                    completions_file="${completions_file%commands\/}completions.txt"
-                ;;
-                *)
-                    completions_file="${completions_file}completions.txt"
-                ;;
-            esac
-        fi
 
         local completions=""
         if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
@@ -104,7 +87,7 @@ _cli_completions() {
             completions="$completions $(cat "$completions_file")"
         fi
 
-        COMPREPLY=($(compgen -W "$completions" -- "${filtered_words[$command_count]}"))
+        COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
     fi
 }
 
