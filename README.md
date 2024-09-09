@@ -245,6 +245,23 @@ cli one two {tab}{tab}
 # five  four
 ```
 
+### Completions for base command
+
+If you need command completions from a completions file for the base command
+you need to create a `cli-completions.txt` in the root directory:
+
+```txt
+cli.sh
+cli-completions.txt
+commands/
+```
+
+This file should have the same name as the script file, `cli.sh` in this
+example, not the `{{CLI_NAME}}` used when installing the cli.
+
+This feature could be useful if you are only using the `cli-completion.bash` for
+your cli completion, but bing your own `cli.sh` script.
+
 ## Global Configuration
 
 If you use the provided `cli.sh`, you can configure the cli with different

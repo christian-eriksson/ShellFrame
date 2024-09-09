@@ -12,6 +12,15 @@ _search_completion_file() {
     local script_path=$(readlink $executable_path)
     local source_dir=$(realpath $(dirname "$script_path"))
 
+    local chain_length="${#raw_command_chain[@]}"
+    if [ "$chain_length" -eq "2" ]; then
+        local script_file=$(basename $script_path)
+        local script_name="${script_file%.*}"
+        file_path="$source_dir/$script_name-$file_type.txt"
+        [ -f "$file_path" ] && echo "$file_path" ||  echo ""
+        return
+    fi
+
     local file_path="$source_dir/commands/"
     local past_first="false"
     for command in "${raw_command_chain[@]}"; do
