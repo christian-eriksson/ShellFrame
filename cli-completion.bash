@@ -46,18 +46,26 @@ _search_completion_file() {
 
 _cli_completions() {
     local filtered_words=()
-
     local word_counter="0"
     local flag_filtered_at_position="0"
+    local flags_to_current_command=()
+    local last_flag=""
     for word in "${COMP_WORDS[@]}"; do
         word_counter=$(($word_counter + 1))
         if [[ "$word" != -* ]]; then
             filtered_words+=("$word")
+            [ -n "$word" ] && flags_to_current_command=()
         else
+            if [ "${#word}" -eq "2" ]; then
+                flags_to_current_command+=("$word")
+            fi
             flag_filtered_at_position="$word_counter"
+            last_flag="$word"
         fi
     done
+    local flag_hint=""
     if [ "$flag_filtered_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
+        flag_hint="$last_flag"
         filtered_words+=("");
     fi
 
@@ -67,7 +75,29 @@ _cli_completions() {
     fi
 
     local completion_hint="${filtered_words[-1]}"
+    [ -n "$flag_hint" ] && completion_hint="$flag_hint"
     [ -n "$completion_hint" ] && unset filtered_words[-1] && filtered_words+=("")
+
+    local flag_completions_file=($(_search_completion_file "flags" "${filtered_words[@]}"))
+    local completions=""
+    if [ -f "$flag_completions_file" ]; then
+        completions="$completions $(cat "$flag_completions_file")"
+    fi
+
+    # We don't want to remove the flag we are potentially about to provide,
+    # as something like 'cli -v -h{tab}' will not be auto completed if '-h' is
+    # removed from the completion list. So we only remove if we are starting a
+    # new flag or are not providing a flag.
+    if [ "$completion_hint" = "-" ] || [ -z "$flag_hint" ]; then
+        for flag in "${flags_to_current_command[@]}"; do
+            completions=${completions/$flag/}
+        done
+    fi
+
+    if [ -n "$flag_hint" ]; then
+        COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
+        return
+    fi
 
     local completions_file=($(_search_completion_file "completions" "${filtered_words[@]}"))
     local command_count=$(($number_of_inputs -1))
@@ -80,7 +110,6 @@ _cli_completions() {
         local completions_directory="${completions_file%completions.txt}commands"
     fi
 
-    local completions=""
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
         local command_completions=$(find "$completions_directory/" -maxdepth 1 \
             -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |

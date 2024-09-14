@@ -245,18 +245,61 @@ cli one two {tab}{tab}
 # five  four
 ```
 
+### Flag completions
+
+You can add flags to the completions by adding flag completion files, they work
+similarly to completions files. These files are named `{command}-flags.txt` and
+follow the same discovery rules as `{command}-completions.txt`. If `one.sh`
+accepts the flags `-q` and `-w` you should create `one-flags.txt` with the
+following content:
+
+```txt
+-q
+-w
+```
+
+and put it next to the `one.sh` command:
+
+```txt
+cli.sh
+commands/
+  |-- one.sh
+  |-- one-completions.txt
+  |-- one-flags.txt
+```
+
+If the `one-completions.txt` has the following content:
+
+```txt
+two
+three
+```
+
+You will get the following completions:
+
+```sh
+cli one {tab}{tab}
+# -q   three  two    -w
+cli one -{tab}{tab}
+# -q -w
+cli one -q {tab}{tab}
+# three  two    -w
+```
+
 ### Completions for base command
 
-If you need command completions from a completions file for the base command
-you need to create a `cli-completions.txt` in the root directory:
+If you need flag or command completions from a completions file for the base
+command you need to create a `cli-completions.txt` and/or `cli-flags.txt` in the
+root directory:
 
 ```txt
 cli.sh
 cli-completions.txt
+cli-flags.txt
 commands/
 ```
 
-This file should have the same name as the script file, `cli.sh` in this
+These files should have the same name as the script file, `cli.sh` in this
 example, not the `{{CLI_NAME}}` used when installing the cli.
 
 This feature could be useful if you are only using the `cli-completion.bash` for
