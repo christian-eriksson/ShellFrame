@@ -51,44 +51,40 @@ _cli_completions() {
     if [ "$flag_filtered_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
         filtered_words+=("");
     fi
-    local number_of_inputs="${#filtered_words[@]}"
 
-    # 1st (base) command is not finished
+    local number_of_inputs="${#filtered_words[@]}"
     if [ "$number_of_inputs" -lt "2" ]; then
         return
     fi
 
     local completion_hint="${filtered_words[-1]}"
-    local executable_path=$(which "${filtered_words[0]}")
-    local script_path=$(readlink $executable_path)
-    local source_dir=$(realpath $(dirname "$script_path"))
+    [ -n "$completion_hint" ] && unset filtered_words[-1] && filtered_words+=("")
 
-    # base command finished, looking for first set of sub-commands
-    if [ "$number_of_inputs" -eq "2" ]; then
-        COMPREPLY=($(compgen -W "$(find "$source_dir/commands/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")" -- "$completion_hint"))
-        return
-    fi
-
-    # first set of sub-commands finished, on n-th level, looking for 1+n-th
-    # level of sub-commands
-    if [ "$number_of_inputs" -gt "2" ]; then
-        local command_count=$(($number_of_inputs -1))
-
-        unset filtered_words[-1]
-        local completions_file=($(_search_completion_file "completions" "${filtered_words[@]}"))
+    local completions_file=($(_search_completion_file "completions" "${filtered_words[@]}"))
+    local command_count=$(($number_of_inputs -1))
+    if [ "$command_count" -eq 1 ]; then
+        local executable_path=$(which "${filtered_words[0]}")
+        local script_path=$(readlink $executable_path)
+        local source_dir=$(realpath $(dirname "$script_path"))
+        local completions_directory="$source_dir/commands/"
+    else
         local completions_directory="${completions_file%completions.txt}commands"
-
-        local completions=""
-        if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
-            completions="$completions $(find "$completions_directory/" -maxdepth 1 -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' | tr "\n" " ")"
-        fi
-
-        if [ -n "$completions_file" ] && [ -f "$completions_file" ]; then
-            completions="$completions $(cat "$completions_file")"
-        fi
-
-        COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
     fi
+
+    local completions=""
+    if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
+        local command_completions=$(find "$completions_directory/" -maxdepth 1 \
+            -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
+            tr "\n" " "
+        )
+        completions="$completions $command_completions"
+    fi
+
+    if [ -n "$completions_file" ] && [ -f "$completions_file" ]; then
+        completions="$completions $(cat "$completions_file")"
+    fi
+
+    COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
 }
 
 complete -F _cli_completions $CLI_NAME
