@@ -1,15 +1,21 @@
-# Shell Script CLI
+# ShellFrame
 
-Simple framework for a CLI with multiple commands written in Bash. The commands
-could be written in any language as long as one can call them through bash using
-an executable in the 'commands' directory. Extend the functionality with new
-commands by adding `<command_name>.sh` in the `commands/` directory and making
-it executable. The script needs to provide some mandatory functionallity, see
-the ['add commands'-section](#add-commands).
+Use ShellFrame to easily create a CLI with sub-commands as well as command (and
+flag) auto completions. Bring your scripts and small tools together to a
+cohesive cli experience. No matter what language your tools are written in, as
+long as they are executable, you can use ShellFrame to glue them together.
+
+This is a simple framework written in Bash, to be used for creating a CLI from
+multiple script and small applications. The commands could be written in any
+language as long as one can call them through bash using an executable in the
+'commands' directory. Extend the functionality with new commands by adding
+`<command_name>` in the `commands/` directory and making it executable. The
+script needs to provide some mandatory functionallity, see the
+['add commands'-section](#add-commands).
 
 It is also possible to bring your own executable as the base for the command, if
 you already have a CLI that you would like to add auto completion to in Bash or
-`zsh`, see [bring your own base command](#bring-your-own-base-command).
+ZSH, see [bring your own base command](#bring-your-own-base-command).
 
 ## Installation
 
