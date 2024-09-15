@@ -45,40 +45,40 @@ _search_completion_file() {
 }
 
 _cli_completions() {
-    local filtered_words=()
+    local commands_provided=()
     local word_counter="0"
     local flag_filtered_at_position="0"
     local flags_to_current_command=()
-    local last_flag=""
+    local last_flag_piece=""
     for word in "${COMP_WORDS[@]}"; do
         word_counter=$(($word_counter + 1))
         if [[ "$word" != -* ]]; then
-            filtered_words+=("$word")
+            commands_provided+=("$word")
             [ -n "$word" ] && flags_to_current_command=()
         else
             if [ "${#word}" -eq "2" ]; then
                 flags_to_current_command+=("$word")
             fi
-            flag_filtered_at_position="$word_counter"
-            last_flag="$word"
+            parital_flag_at_position="$word_counter"
+            last_flag_piece=$word
         fi
     done
     local flag_hint=""
-    if [ "$flag_filtered_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
-        flag_hint="$last_flag"
-        filtered_words+=("");
+    if [ "$parital_flag_at_position" -eq  "${#COMP_WORDS[@]}" ]; then
+        flag_hint="$last_flag_piece"
+        commands_provided+=("");
     fi
 
-    local number_of_inputs="${#filtered_words[@]}"
-    if [ "$number_of_inputs" -lt "2" ]; then
+    local number_of_commands="${#commands_provided[@]}"
+    if [ "$number_of_commands" -lt "2" ]; then
         return
     fi
 
-    local completion_hint="${filtered_words[-1]}"
+    local completion_hint="${commands_provided[-1]}"
     [ -n "$flag_hint" ] && completion_hint="$flag_hint"
-    [ -n "$completion_hint" ] && unset filtered_words[-1] && filtered_words+=("")
+    [ -n "$completion_hint" ] && unset commands_provided[-1] && commands_provided+=("")
 
-    local flag_completions_file=($(_search_completion_file "flags" "${filtered_words[@]}"))
+    local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
     local completions=""
     if [ -f "$flag_completions_file" ]; then
         completions="$completions $(cat "$flag_completions_file")"
@@ -99,10 +99,10 @@ _cli_completions() {
         return
     fi
 
-    local completions_file=($(_search_completion_file "completions" "${filtered_words[@]}"))
-    local command_count=$(($number_of_inputs -1))
-    if [ "$command_count" -eq 1 ]; then
-        local executable_path=$(which "${filtered_words[0]}")
+    local completions_file=($(_search_completion_file "completions" "${commands_provided[@]}"))
+    local command_count_wo_completion_hint=$(($number_of_commands -1))
+    if [ "$command_count_wo_completion_hint" -eq 1 ]; then
+        local executable_path=$(which "${commands_provided[0]}")
         local script_path=$(readlink $executable_path)
         local source_dir=$(realpath $(dirname "$script_path"))
         local completions_directory="$source_dir/commands/"
