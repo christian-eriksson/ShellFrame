@@ -1,16 +1,20 @@
 # Shell Script CLI
 
 Simple framework for a CLI with multiple commands written in Bash. The commands
-could be written in anylanguage as long as one can call them through bash using
+could be written in any language as long as one can call them through bash using
 an executable in the 'commands' directory. Extend the functionality with new
 commands by adding `<command_name>.sh` in the `commands/` directory and making
 it executable. The script needs to provide some mandatory functionallity, see
 the ['add commands'-section](#add-commands).
 
+It is also possible to bring your own executable as the base for the command, if
+you already have a CLI that you would like to add auto completion to in Bash or
+`zsh`, see [bring your own base command](#bring-your-own-base-command).
+
 ## Installation
 
-Install the cli by soft linking the 'cli.sh' to some directory in
-your path:
+Install the cli by soft linking the 'cli.sh' (or some [executable of your own](#bring-your-own-base-command)
+to some directory in your `PATH`, for example:
 
 ```sh
 ln -s {{INSTALL_PATH}}/cli.sh ~/.local/bin/{{CLI_NAME}}
@@ -358,3 +362,67 @@ environments by adding one or multiple `.env.<ENVIRONMENT>` files in the root
 directory of this repo. The commands will all be able to read the variables set
 in these files and you can use the `-e <ENVIRONMENT>` flag to choose which file
 to use.
+
+## Bring your own base command
+
+If the `cli.sh` script does not work for you, you can choose to just use the
+`cli-completion.bash` file to provide auto completions for your cli. The custom
+script (or executable) could be of any type as long as it is executable and can
+be installed by creating a link in some directory in your `PATH` variable, see
+[installation instructions](#installation). The custom executable (not the link)
+must reside in the same directory as the `cli-completion.bash` file.
+
+To provide completion hints to the custom cli you would follow the instructions
+for [adding a command](#add-commands). You can also use the [completion files](#completion-files)
+strategy and the [flag completion files](#flag-completions) strategy for command
+and flag completion.
+
+The following would be a sample structure using a custom python script as the
+executable:
+
+```txt
+awesome_cli.py
+cli-completion.bash
+awesome_cli-flags.txt
+awesome_cli-completions.txt
+commands/
+  |-- foo.py
+  |-- foo-completions.txt
+  |-- foo-flags.txt
+  |-- foo-commands/
+  |     |-- bar.js
+  |     |-- bar-completions.txt
+  |     |-- bar-qux-completions.txt
+  |     |-- baz.js
+  |     |-- baz-flags.txt
+  |-- fax-completions.txt
+  |-- fax-fii-completions.txt
+  |-- fax-fii-faa-completions.txt
+  |-- fax-fii-faa-flags.txt
+  |-- box-completions.txt
+  |-- box-flags.txt
+  |-- box-bix-completions.txt
+```
+
+Most of the sub commands of `awesome_cli.py` do not need external scripts to
+run. These would be handled directly in `awesome_cli.py`, like the `fax` and
+`box` command. There could be other "internal" commands in the
+`awesome_cli-completions.txt` file as well. The `fax` and `box` command have
+their own sub-commands, `fax` and `box`. There is one external command `foo`
+which in turn have sub-commands, `bar` and `baz`, implemented in JavaScript. The
+`foo` command would be detected automatically by auto completion due to its
+location in the `commands` directory, and so would its `bar` and `baz`
+sub-commands.
+
+The restrictions on what the commands in the `commands` directory need to adhere
+to, like implementing `-h` and `-v` does not apply when brining your own base
+executable, as these are set by `cli.sh`.
+
+You also don't need to add your external script in the `commands` directory, the
+`foo`, `bar` and `baz` commands (above) are only placed there to illustrate
+auto discovery for completions.
+
+The completion files, however, do need to be placed in the `commands` directory
+in order for the `cli-completion.bash` script do find them. Additionally, the
+completion files (flags and commands) for the base command must be placed and
+named in the same manner as for `awesome_cli` above.
