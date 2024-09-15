@@ -23,6 +23,7 @@ _search_completion_file() {
     local file_path="$source_dir/commands/"
     unset commands[0]
     for command in "${commands[@]}"; do
+        [ -z "$command" ] && continue
         case "$command" in
             -*)
                 break
@@ -49,6 +50,7 @@ _cli_completions() {
     local flags_to_current_command=()
     local flag_argument_hint=""
     for word in "${input_array[@]}"; do
+        [ -z "$word" ] && continue
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
             local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
@@ -74,7 +76,9 @@ _cli_completions() {
     fi
 
     if [ -n "$flag_argument_hint" ]; then
-        COMPREPLY=("$flag_argument_hint" "")
+        if [ -z "$ZSH_VERSION" ]; then
+            COMPREPLY=("$flag_argument_hint" "")
+        fi
         return 0
     fi
 
@@ -105,7 +109,7 @@ _cli_completions() {
 
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
         local command_completions=$(find "$completions_directory/" -maxdepth 1 \
-            -type f -executable -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
+            -type f -perm -111 -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
             tr "\n" " "
         )
         completions="$completions $command_completions"

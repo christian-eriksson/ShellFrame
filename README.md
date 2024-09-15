@@ -20,14 +20,26 @@ Assuming that `~/.local/bin` is in your `$PATH`. You can then call the cli with
 `{{CLI_NAME}}`. Use `-h` flag to show the help for the cli and the supported
 commands.
 
-If you want completions for the cli source the completion script:
+If you want auto completions for the cli source the completion script:
 
 ```sh
 CLI_NAME={{CLI_NAME}} . {{INSTALL_PATH}}/cli-completion.bash
 ```
 
 You can add this line to your `~/.bashrc`, `~/.profile`, or some other file
-which is loaded when a shell opens.
+which is sourced when a shell opens. If you use `zsh` (if you use MacOS you
+probably do) you need to add the following to your `~/.zshrc`, or similar file
+that is sourced at shell start:
+
+```sh
+autoload -Uz compinit
+compinit
+autoload -Uz bashcompinit
+bashcompinit
+CLI_NAME={{CLI_NAME}} . {{INSTALL_PATH}}/cli-completion.bash
+```
+
+to be able to call the installed cli using `{{CLI_NAME}}` with auto completions.
 
 ## Add Commands
 
@@ -314,6 +326,11 @@ cli one -t {tab}{tab}
 cli one -t integer {tab}{tab}
 # -n     -q     three  two    -w
 ```
+
+> **NOTE:** If you are using `zsh` you will not get the flag hint (this is due
+> to how `zsh` handles auto completions) instead you will get no hint until you
+> have provided the argument to the flag. This allows you to at least get a hint
+> that you are expected to input something, but not quite what to input.
 
 ### Completions for base command
 

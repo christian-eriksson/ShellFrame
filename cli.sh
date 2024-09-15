@@ -35,7 +35,7 @@ done
 
 shift $((OPTIND - 1))
 
-command_executables="$(find $script_dir/commands/ -maxdepth 1 -type f -executable -print)"
+command_executables="$(find $script_dir/commands/ -maxdepth 1 -type f -perm -111 -print)"
 
 if [ -n "$help" ]; then
     echo \

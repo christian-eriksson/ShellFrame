@@ -55,7 +55,7 @@ Options:
 Direction Commands:
     "
 
-    find "$commands_dir/" -type f -executable -print | while read -r file; do
+    find "$commands_dir/" -type f -perm -111 -print | while read -r file; do
         sub_filename=$(basename "$file")
         sub_command=${sub_filename%.*}
         printf -- "- %s\n" "$sub_command"
