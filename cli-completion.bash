@@ -47,19 +47,35 @@ _cli_completions() {
 
     local commands_provided=()
     local flags_to_current_command=()
+    local flag_argument_hint=""
     for word in "${input_array[@]}"; do
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
+            local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
+            if [ ! -f "$flag_completions_file" ]; then
+                continue
+            fi
+            local flag_completions=$(cat "$flag_completions_file")
+            flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]} " | cut -d" " -f2-) || true
         else
+            if [ -n "$flag_argument_hint" ]; then
+                flag_argument_hint=""
+                continue
+            fi
             commands_provided+=("$word")
             flags_to_current_command=()
         fi
     done
 
-    local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
+    flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
     local completions=""
     if [ -f "$flag_completions_file" ]; then
-        completions="$completions $(cat "$flag_completions_file")"
+        completions="$completions $(cat "$flag_completions_file" | cut -d" " -f1)" || true
+    fi
+
+    if [ -n "$flag_argument_hint" ]; then
+        COMPREPLY=("$flag_argument_hint" "")
+        return 0
     fi
 
     # We don't want to remove the flag we are potentially about to provide,

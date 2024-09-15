@@ -281,9 +281,38 @@ You will get the following completions:
 cli one {tab}{tab}
 # -q   three  two    -w
 cli one -{tab}{tab}
-# -q -w
+# -q  -w
 cli one -q {tab}{tab}
 # three  two    -w
+```
+
+If you have flags that takes arguments you should make this known in the flag
+completion file. You do this by adding a space and a hint to the flags line in
+the completions file. To add a flags `-n` and `-t` that both take an argument
+to the example above we update the `one-flags.txt` file:
+
+```txt
+-n <NUM>
+-q
+-t type of number
+-w
+```
+
+The hint can be any string but it is recommended to keep it pretty short, as a
+long string risks messing up the formatting. The above will result in the
+following completions:
+
+```sh
+cli one {tab}{tab}
+# -n     -q     three  two    -t     -w
+cli one -{tab}{tab}
+# -n  -q  -w
+cli one -n {tab}{tab}
+#        <NUM>
+cli one -t {tab}{tab}
+#                 type of number
+cli one -t integer {tab}{tab}
+# -n     -q     three  two    -w
 ```
 
 ### Completions for base command
