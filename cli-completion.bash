@@ -108,8 +108,8 @@ _cli_completions() {
     fi
 
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
-        local command_completions=$(find "$completions_directory/" -maxdepth 1 \
-            -type f -perm -111 -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
+        local command_completions=$(find -L "$completions_directory/" -maxdepth 1 \
+            -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
             tr "\n" " "
         )
         completions="$completions $command_completions"

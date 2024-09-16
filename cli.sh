@@ -35,7 +35,7 @@ done
 
 shift $((OPTIND - 1))
 
-command_executables="$(find $script_dir/commands/ -maxdepth 1 -type f -perm -111 -print)"
+command_executables="$(find -L $script_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
 
 if [ -n "$help" ]; then
     echo \
@@ -119,7 +119,7 @@ _run_command() {
     "$command_path" $verbose "$@"
 }
 
-if [ -x "$command_path" ]; then
+if [ -x "$command_path" ] || ([ -L "$command_path" ] && [ -x "$(readlink $command_path)" ]); then
     [ -n "$verbose" ] && echo "running command: $command_path"
     [ -n "$verbose" ] && echo "with arguments: $verbose $@"
     (_run_command "$@") || ([ "$?" -eq 64 ] && _usage)

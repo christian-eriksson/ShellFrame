@@ -7,11 +7,11 @@ long as they are executable, you can use ShellFrame to glue them together.
 
 This is a simple framework written in Bash, to be used for creating a CLI from
 multiple script and small applications. The commands could be written in any
-language as long as one can call them through bash using an executable in the
-'commands' directory. Extend the functionality with new commands by adding
-`<command_name>` in the `commands/` directory and making it executable. The
-script needs to provide some mandatory functionallity, see the
-['add commands'-section](#add-commands).
+language as long as one can call them through bash using an executable or link
+to an executable in the 'commands' directory. Extend the functionality with new
+commands by adding the executable `<command_name>.*` or creating a link to
+`<command_name>.*` in the `commands/` directory. The script needs to provide
+some mandatory functionallity, see the ['add commands'-section](#add-commands).
 
 It is also possible to bring your own executable as the base for the command, if
 you already have a CLI that you would like to add auto completion to in Bash or
@@ -64,7 +64,7 @@ commands/
   |-- one.sh
 ```
 
-The command script needs to accept the `-h` flag and display a help text for the
+The command scripts need to accept the `-h` flag and display a help text for the
 command then exit (with `0` status) if provided. It must also accept the `-v`
 flag, for verbose output, and execute normally if it is provided (with some
 extra logs if verbose logging is implemented). When `cli.sh -h` is called it
@@ -108,6 +108,61 @@ responsible for executing the chosen command, and thus need to be able to find
 the sub-command script files relative to its location. If `cli one two` is
 executed, the `cli.sh` script will call `commands/one.sh two`, so `one.sh` needs
 to know what to do with `two`.
+
+You can also create a link to your executable and place the link in the
+`commands` directory. Create a link with:
+
+```sh
+ln -s {{EXECUTABLE_PATH}} {{INSTALL_PATH}}/commands/{{COMMAND_NAME}}
+```
+
+Remember that you are responsible for the links if you plan to have others
+install your cli. Links can be fiddly as they will break if the executable is
+moved. One strategy is to place the `cli.sh` and `commands/` directory in a
+defined location relative to your scripts and tools and then make **relative**
+**links** between `commands/` and your source directory. For example if you have
+the following project with multiple tools (given that the script files are
+executable), copy the `cli.sh` and the `cli-completions.bash`, then create
+the `commands/` directory for the following structure:
+
+```txt
+tool_one/
+  |-- bin/
+  |     |-- tool.js
+  |-- src/
+  |     |-- tool.ts
+tool_two/
+  |-- bar.py
+  |-- foo.py
+tool_three.sh
+my_cli/
+  |-- cli.sh
+  |-- cli-completions.bash
+  |-- commands/
+  |     |-- 3tool
+  |     |-- 3tool-completions.txt
+  |     |-- 3tool-flags.txt
+  |     |-- bar
+  |     |-- bar-completions.txt
+  |     |-- foo
+  |     |-- foo-completions.txt
+  |     |-- tool
+  |     |-- tool-flag.txt
+```
+
+The cli is installed as normal, see [install instructions](#installation), and
+the links in `my_cli/commands/` would be created with:
+
+```sh
+ln -s ../../tool_one/bin/tool.js {{INSTALL_PATH}}/my_cli/commands/tool
+ln -s ../../tool_two/foo.py {{INSTALL_PATH}}/my_cli/commands/foo
+ln -s ../../tool_two/bar.py {{INSTALL_PATH}}/my_cli/commands/bar
+ln -s ../../tool_three.sh {{INSTALL_PATH}}/my_cli/commands/3tool
+```
+
+ShellFrame would then automatically discover the commands and their completions.
+If you were to share this directory, the relative links (as long as links are
+supported on the target system) should not break.
 
 ### Completion files
 
