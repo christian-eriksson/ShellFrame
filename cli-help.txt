@@ -1,0 +1,39 @@
+Description:
+This is a basic example of how to create a cli tool in Bash, it allows you to
+extend it by adding executable shell scripts in the 'commands' directory of
+the repo. to add a command called 'foo' to the cli, create the executable
+file:
+
+{SCRIPT_DIR}/commands/foo.sh
+
+The script needs to accept the '-h' flag and display a help text for the
+command then exit if provided. And it must accept the '-v' flag, for verbose,
+and execute normally if it is provided (with some extra logs if applicable).
+
+Install the cli by soft linking the 'cli.sh' to some directory in
+your path. For example:
+
+ln -s {SCRIPT_DIR}/cli.sh ~/.local/bin/cli
+
+Assuming that '~/.local/bin' is in your \$PATH.
+
+You can configure the cli with different environments by adding one or multiple
+'.env.<ENVIRONMENT>' files in the {SCRIPT_DIR}.
+
+The commands will all be able to read the variables set in this file and you can
+use the '-e' flag to choose which file to use.
+
+Options:
+  -e  <ENVIRONMENT> Selects the environment to run in, default environment is
+                    'dev'. If no .env.* file exists, variables need to be
+                    provided manually. Variables defined in .env.* takes
+                    precedence over environment variables provided through other
+                    means.
+  -v                Verbose output, use for debugging.
+  -h                Show this help text
+
+  <COMMAND>         The command to be executed, see the available commands below
+  <OPTIONS>         The options to send to the command, see the options in the
+                    individual help sections for each command.
+  <INPUT>           The input to the command, see the section for each command
+                    to read about their input.

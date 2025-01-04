@@ -1,0 +1,1 @@
+Usage: {CLI_NAME} [-h] [-e <ENVIRONMENT>] [-v] <COMMAND> [<OPTIONS>] [<INPUT>]

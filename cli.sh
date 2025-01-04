@@ -4,7 +4,14 @@ set -e -o pipefail
 
 script_path=$(readlink "$0") || script_path="$0"
 script_dir=$(realpath $(dirname "$script_path"))
-usage_string="Usage: $(basename $0) [-h] [-e <ENVIRONMENT>] [-v] <COMMAND> [<OPTIONS>] [<INPUT>]"
+script_file=$(basename $script_path)
+script_name=${script_file%.*}
+usage_file="$script_dir/$script_name-usage.txt"
+if [ -f "$usage_file" ]; then
+    usage_string=$(sed "s%{CLI_NAME}%$(basename $0)%" $usage_file)
+else
+    usage_string="Usage: $(basename $0) [-h] [-e <ENVIRONMENT>] [-v] <COMMAND> [<OPTIONS>] [<INPUT>]"
+fi
 
 _usage() {
     echo "$usage_string"
@@ -38,54 +45,13 @@ shift $((OPTIND - 1)) # remove options from positional parameters
 command_executables="$(find -L $script_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
 
 if [ -n "$help" ]; then
-    echo \
-        "$usage_string
-
-Description:
-This is a basic example of how to create a cli tool in Bash, it allows you to
-extend it by adding executable shell scripts in the 'commands' directory of
-the repo. to add a command called 'foo' to the cli, create the executable
-file:
-
-$script_dir/commands/foo.sh
-
-The script needs to accept the '-h' flag and display a help text for the
-command then exit if provided. And it must accept the '-v' flag, for verbose,
-and execute normally if it is provided (with some extra logs if applicable).
-
-Install the cli by soft linking the 'cli.sh' to some directory in
-your path. For example:
-
-ln -s $script_dir/cli.sh ~/.local/bin/cli
-
-Assuming that '~/.local/bin' is in your \$PATH.
-
-You can configure the cli with differente environments by adding one or multiple
-'.env.<ENVIRONMENT>' files in this directory:
-
-$script_dir
-
-The commands will all be able to read the variables set in this file and you can
-use the '-e' flag to choose which file to use.
-
-Options:
-  -e  <ENVIRONMENT> Selects the environment to run in, default environment is
-                    'dev'. If no .env.* file exists, variables need to be
-                    provided manually. Variables defined in .env.* takes
-                    precedence over environment variables provided through other
-                    means.
-  -v                Verbose output, use for debugging.
-  -h                Show this help text
-
-  <COMMAND>         The command to be executed, see the available commands below
-  <OPTIONS>         The options to send to the command, see the options in the
-                    individual help sections for each command.
-  <INPUT>           The input to the command, see the section for each command
-                    to read about their input.
-
-Commands:
-    "
-
+    echo $usage_string
+    help_file="$script_dir/$script_name-help.txt"
+    if [ -f "$help_file" ]; then
+        printf -- "\n"
+        cat "$help_file"
+    fi
+    echo -e "\nCommands:\n"
     echo "$command_executables" | while read -r file; do
         filename=$(basename $file)
         printf -- "- %s\n" "${filename%.*}"
