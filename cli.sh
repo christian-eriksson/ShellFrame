@@ -33,7 +33,7 @@ while getopts ":e:vh" opt; do
     esac
 done
 
-shift $((OPTIND - 1))
+shift $((OPTIND - 1)) # remove options from positional parameters
 
 command_executables="$(find -L $script_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
 
