@@ -1,2 +1,4 @@
 medium
 long
+hard
+slight

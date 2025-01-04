@@ -36,7 +36,7 @@ done
 
 shift $((OPTIND - 1))
 
-commands_dir="$script_dir/${command}-commands"
+commands_dir="$script_dir/${command}"
 if [ -n "$help" ]; then
     echo \
     "Usage: $usage_string

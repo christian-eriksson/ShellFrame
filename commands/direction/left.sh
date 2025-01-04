@@ -55,13 +55,13 @@ Options:
 fi
 
 character="$1"
-sub_command="$script_dir/${command}-commands/$character"
+sub_command="$script_dir/${command}/$character.sh"
 if [ -n "$character" ]; then
     if [ -f "$sub_command" ] && [ -x "$sub_command" ]; then
         sub_result=$($sub_command "$@")
         echo "the left (at a speed of $speed) $sub_result!"
     else
-        echo "the left (at a speed of $speed)!"
+        echo "the left (at a speed of $speed) $character!"
     fi
 else
     echo "the left (at a speed of $speed)!"

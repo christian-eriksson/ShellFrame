@@ -55,7 +55,7 @@ Options:
 fi
 
 character="$1"
-sub_command="$script_dir/${command}-commands/$character"
+sub_command="$script_dir/${command}/$character.sh"
 if [ -n "$character" ]; then
     if [ -f "$sub_command" ] && [ -x "$sub_command" ]; then
         # https://dev.to/banks/stop-ignoring-errors-in-bash-3co5#the-unfortunate-case-of-command-substitution
@@ -64,7 +64,7 @@ if [ -n "$character" ]; then
         sub_result=$($sub_command "$@")
         echo "the right (at a speed of $speed) $sub_result!"
     else
-        echo "the right (at a speed of $speed)!"
+        echo "the right (at a speed of $speed) $character!"
     fi
 else
     echo "the right (at a speed of $speed)!"
