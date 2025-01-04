@@ -90,22 +90,94 @@ Commands:
         filename=$(basename $file)
         printf -- "- %s\n" "${filename%.*}"
     done
+    find $script_dir/commands/ -ipath .*-help.txt | while read -r file; do
+        filename=$(basename $file)
+        printf -- "- %s\n" "${filename%-help.txt}"
+    done
 
     echo "$command_executables" | while read -r file; do
         [ ! -x "$file" ] && continue
         filename=$(basename $file)
         command=${filename%.*}
-        echo -e "\n${command^^}\n"
-        "$file" -h
+        echo -e "\n# ${command^^}\n"
+        directory=$(dirname $file)
+        help_file="${directory}/${command}-help.txt"
+        if [ -f "$help_file" ]; then
+            cat $help_file
+            printf -- "\n"
+        else
+            "$file" -h
+        fi
     done
+
+    find $script_dir/commands/ -ipath "*-help.txt" | while read -r file; do
+        filename=$(basename $file)
+        command=${filename%-help.txt}
+        command_file=$(find $script_dir/commands/ -iname ${command}.*)
+        if [ -z "${command_file}" ]; then
+            echo -e "\n# ${command^^}\n"
+            cat $file
+        fi
+    done
+    printf -- "\n"
     exit 0
 fi
 
 command=$1
 shift || (echo "ERROR: no command provided!" && _usage)
 
-command_path="$(echo "$command_executables" | grep "$command\.[[:alnum:]]\+$")" || true
-[ -z "$command_path" ] && command_path="$script_dir/commands/$command"
+_find_executable() {
+    find -L $1/ -maxdepth 1 -iname "${2}.*" -perm -111 -not -type d -print |
+        grep "${2}\.[[:alnum:]]\+$"
+}
+
+_find_command() {
+    [ -n "$verbose" ] && echo "searching for command: '$command'"
+    arguments=("$@")
+    sub_commands=()
+    for arg in "${arguments[@]}"; do
+        [ -z "$arg" ] && continue
+        case "$arg" in
+        -*)
+            break
+            ;;
+        *)
+            sub_commands+=($arg)
+            ;;
+        esac
+    done
+    sub_command_path="$script_dir/commands"
+    sub_command=$command
+    idx=0
+    while [ -d "$sub_command_path/$sub_command-commands" ]; do
+        sub_command_path=$sub_command_path/$sub_command-commands
+        sub_command="${sub_commands[$idx]}"
+        [ -n "$verbose" ] && echo "searching for sub command '$sub_command' in: '$sub_command_path'"
+        idx=$((idx + 1))
+    done
+
+    command_executable=$(_find_executable "$sub_command_path" "$sub_command") || true
+    if [ -z "$command_executable" ]; then
+        [ -n "$verbose" ] && echo "WARNING: no command executable found for sub command '$sub_command' at '$sub_command_path'!" || true
+        command_executable=$(_find_executable "$script_dir/commands" "$command") || true
+    fi
+    if [ -z "$command_executable" ]; then
+        if [ "$idx" -gt "0" ]; then
+            echo "ERROR: no command executable found for sub command '$sub_command' at '$sub_command_path'!"
+        fi
+        echo "ERROR: no command executable found for command '$command' at '$command_path'!"
+        exit 1
+    fi
+    while [ "$idx" -gt "0" ] && [ -n "$sub_command" ]; do
+        idx=$((idx - 1))
+        unset arguments[$idx]
+    done
+    command_path=$command_executable
+
+    [ -n "$verbose" ] && echo "found command path: '$command_path'" || true
+}
+
+_find_command "$@" || _usage
 
 _run_command() {
     set -a
@@ -116,13 +188,38 @@ _run_command() {
         fi
     fi
     set +a
-    "$command_path" $verbose "$@"
+    arguments=("$@")
+
+    for arg in "${arguments[@]}"; do
+        if [ "$arg" == "-h" ]; then
+            help=$arg
+        fi
+    done
+
+    if [ -n "$help" ]; then
+        command_file=$(basename $command_path)
+        command=${command_file%.*}
+        command_dir=$(dirname $command_path)
+        help_file="${command_dir}/${command}-help.txt"
+        echo $help_file
+        if [ -f "$help_file" ]; then
+            cat $help_file
+            printf -- "\n"
+        else
+            "$command_path" -h
+        fi
+    else
+        if [ -d "$command_path" ]; then
+            echo "ERROR: no sub command in path '$command_path'!" && exit 64
+        fi
+        "$command_path" $verbose "${arguments[@]}"
+    fi
 }
 
 if [ -x "$command_path" ] || ([ -L "$command_path" ] && [ -x "$(readlink $command_path)" ]); then
     [ -n "$verbose" ] && echo "running command: $command_path"
-    [ -n "$verbose" ] && echo "with arguments: $verbose $@"
-    (_run_command "$@") || ([ "$?" -eq 64 ] && _usage)
+    [ -n "$verbose" ] && echo "with arguments: $verbose ${arguments[@]}"
+    (_run_command "${arguments[@]}") || ([ "$?" -eq 64 ] && _usage)
 else
     [ -n "$verbose" ] && echo "command file does not exist or is not executable"
     echo "ERROR: '$command' is not a command"

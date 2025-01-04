@@ -1,0 +1,17 @@
+Usage: group [-v] [-h] <COMMAND> [<OPTIONS>]
+
+Description:
+Groups some commands that we can use.
+
+Commands:
+bar         - set the bar
+                bar [-h] [-v] [-e <ENVIRONMENT>]
+foo         - do the foo
+                foo [-h] [-v] [-e <ENVIRONMENT>]
+sub_group   - some sub commands for the group
+
+    Sub Commands:
+    baz         - baz the baz
+                    baz [-h] [-v] [-e <ENVIRONMENT>]
+    qux         - qux the qux
+                    qux [-h] [-v] [-e <ENVIRONMENT>]

@@ -1,0 +1,9 @@
+Usage: sub-automatic [-v] [-h] [<OPTIONS>]
+
+Description:
+Automatically discovered command and help text
+
+Options:
+-v      not implemented here
+-h      shows this help
+-e      take some text input and prints it
