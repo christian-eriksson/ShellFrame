@@ -6,29 +6,29 @@ script_path=$(readlink "$0") || script_path="$0"
 script_dir=$(realpath $(dirname "$script_path"))
 usage_string="Usage: $(basename $0) [-h] [-e <ENVIRONMENT>] [-v] <COMMAND> [<OPTIONS>] [<INPUT>]"
 
-_usage () {
+_usage() {
     echo "$usage_string"
     exit 64
 }
 
 while getopts ":e:vh" opt; do
     case $opt in
-        e)
-            environment=$OPTARG
+    e)
+        environment=$OPTARG
         ;;
-        v)
-            verbose=-v
+    v)
+        verbose=-v
         ;;
-        h)
-            help=-h
+    h)
+        help=-h
         ;;
-        \?)
-            echo "Invalid option: '-$OPTARG'" >&2
-            _usage
+    \?)
+        echo "Invalid option: '-$OPTARG'" >&2
+        _usage
         ;;
-        :)
-            echo "Option '-$OPTARG' requires an argument." >&2
-            _usage
+    :)
+        echo "Option '-$OPTARG' requires an argument." >&2
+        _usage
         ;;
     esac
 done
@@ -39,7 +39,7 @@ command_executables="$(find -L $script_dir/commands/ -maxdepth 1 -perm -111 -not
 
 if [ -n "$help" ]; then
     echo \
-    "$usage_string
+        "$usage_string
 
 Description:
 This is a basic example of how to create a cli tool in Bash, it allows you to
