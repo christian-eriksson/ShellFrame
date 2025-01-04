@@ -221,7 +221,7 @@ if [ -x "$command_path" ] || ([ -L "$command_path" ] && [ -x "$(readlink $comman
     [ -n "$verbose" ] && echo "with arguments: $verbose ${arguments[@]}"
     (_run_command "${arguments[@]}") || ([ "$?" -eq 64 ] && _usage)
 else
-    [ -n "$verbose" ] && echo "command file does not exist or is not executable"
+    [ -n "$verbose" ] && echo "command file '$command_path' does not exist or is not executable"
     echo "ERROR: '$command' is not a command"
     _usage
 fi
