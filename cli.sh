@@ -180,7 +180,6 @@ _run_command() {
         command=${command_file%.*}
         command_dir=$(dirname $command_path)
         help_file="${command_dir}/${command}-help.txt"
-        echo $help_file
         if [ -f "$help_file" ]; then
             cat $help_file
             printf -- "\n"
