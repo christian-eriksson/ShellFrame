@@ -4,13 +4,24 @@
 
 # will stop searching if it finds any flags, so filter flags before searching
 # for sub-commands
+_base_dir() {
+    local dir="$1"
+    if [ -f "$dir/.base-dir" ]; then
+        local override=$(cat "$dir/.base-dir")
+        [ "${override:0:1}" != "/" ] && override="$dir/$override"
+        realpath "$override"
+    else
+        echo "$dir"
+    fi
+}
+
 _search_completion_file() {
     local file_type="$1"
     shift
     local commands=("$@")
     local executable_path=$(which "${commands[0]}")
     local script_path=$(readlink $executable_path)
-    local source_dir=$(realpath $(dirname "$script_path"))
+    local source_dir=$(_base_dir $(realpath $(dirname "$script_path")))
 
     if [ "${#commands[@]}" -eq "1" ]; then
         local script_file=$(basename $script_path)
@@ -101,7 +112,7 @@ _cli_completions() {
     if [ "${#commands_provided[@]}" -eq 1 ]; then
         local executable_path=$(which "${commands_provided[0]}")
         local script_path=$(readlink $executable_path)
-        local source_dir=$(realpath $(dirname "$script_path"))
+        local source_dir=$(_base_dir $(realpath $(dirname "$script_path")))
         local completions_directory="$source_dir/commands/"
     else
         local completions_directory="${completions_file%completions.txt}commands"

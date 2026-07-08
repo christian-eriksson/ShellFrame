@@ -487,3 +487,36 @@ The completion files, however, do need to be placed in the `commands` directory
 in order for the `cli-completion.bash` script do find them. Additionally, the
 completion files (flags and commands) for the base command must be placed and
 named in the same manner as for `awesome_cli` above.
+
+## Using ShellFrame as a git submodule (external base directory)
+
+If you want to keep ShellFrame itself completely separate from your project's
+scripts (for example so it can be added as a git submodule and updated
+independently with a plain `git pull`), you don't have to co-locate `commands/`,
+completion files, `.env.*` files, etc. with `cli.sh` and `cli-completion.bash`.
+
+Both scripts look for an optional `.base-dir` file next to themselves (i.e. in
+the same directory as `cli.sh` / `cli-completion.bash`). If present, its content
+(a single line, either an absolute path or a path relative to that directory) is
+used instead of the script's own directory when looking up `commands/`,
+`*-usage.txt`, `*-help.txt`, `*-completions.txt`, `*-flags.txt` and `.env.*`.
+When the file is absent, ShellFrame behaves exactly as described above
+(self-contained).
+
+For example, if ShellFrame is checked out as a submodule at `some-project/vendor/shellframe`
+and you want `commands/` and the other project files to live at `some-project/`
+instead, add a `some-project/vendor/shellframe/.base-dir` file containing:
+
+```txt
+../..
+```
+
+Because this file is specific to how a consumer wires up ShellFrame (and not
+something ShellFrame itself should track), it is git-ignored by this repo - you
+are expected to (re-)create it yourself, for example from a small wrapper script
+that is part of your own project and that you use as the installable entry
+point instead of `cli.sh` directly, see [bring your own base command](#bring-your-own-base-command).
+Such a wrapper can also `export CLI_NAME=your-cli-name` before invoking `cli.sh`,
+so that `cli.sh` uses that name (instead of its own filename) when looking up
+`*-usage.txt` / `*-help.txt`.
+

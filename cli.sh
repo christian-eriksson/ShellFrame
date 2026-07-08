@@ -5,8 +5,21 @@ set -e -o pipefail
 script_path=$(readlink "$0") || script_path="$0"
 script_dir=$(realpath $(dirname "$script_path"))
 script_file=$(basename $script_path)
-script_name=${script_file%.*}
-usage_file="$script_dir/$script_name-usage.txt"
+script_name=${CLI_NAME:-${script_file%.*}}
+
+# base_dir is where commands/, *-usage.txt, *-help.txt and .env.* are looked
+# up. Defaults to script_dir but can be redirected to an external directory
+# (e.g. when this repo is used as a git submodule) via a '.base-dir' file
+# placed next to this script, containing a single path (absolute, or relative
+# to script_dir).
+base_dir="$script_dir"
+if [ -f "$script_dir/.base-dir" ]; then
+    base_dir=$(cat "$script_dir/.base-dir")
+    [ "${base_dir:0:1}" != "/" ] && base_dir="$script_dir/$base_dir"
+    base_dir=$(realpath "$base_dir")
+fi
+
+usage_file="$base_dir/$script_name-usage.txt"
 if [ -f "$usage_file" ]; then
     usage_string=$(sed "s%{CLI_NAME}%$(basename $0)%" $usage_file)
 else
@@ -42,11 +55,11 @@ done
 
 shift $((OPTIND - 1)) # remove options from positional parameters
 
-command_executables="$(find -L $script_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
+command_executables="$(find -L $base_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
 
 if [ -n "$help" ]; then
     echo $usage_string
-    help_file="$script_dir/$script_name-help.txt"
+    help_file="$base_dir/$script_name-help.txt"
     if [ -f "$help_file" ]; then
         printf -- "\n"
         cat "$help_file"
@@ -56,7 +69,7 @@ if [ -n "$help" ]; then
         filename=$(basename $file)
         printf -- "- %s\n" "${filename%.*}"
     done
-    find $script_dir/commands/ -ipath .*-help.txt | while read -r file; do
+    find $base_dir/commands/ -ipath .*-help.txt | while read -r file; do
         filename=$(basename $file)
         printf -- "- %s\n" "${filename%-help.txt}"
     done
@@ -76,10 +89,10 @@ if [ -n "$help" ]; then
         fi
     done
 
-    find $script_dir/commands/ -ipath "*-help.txt" | while read -r file; do
+    find $base_dir/commands/ -ipath "*-help.txt" | while read -r file; do
         filename=$(basename $file)
         command=${filename%-help.txt}
-        command_file=$(find $script_dir/commands/ -iname ${command}.*)
+        command_file=$(find $base_dir/commands/ -iname ${command}.*)
         if [ -z "${command_file}" ]; then
             echo -e "\n# ${command^^}\n"
             cat $file
@@ -112,7 +125,7 @@ _find_command() {
             ;;
         esac
     done
-    sub_command_path="$script_dir/commands"
+    sub_command_path="$base_dir/commands"
     sub_command=$command
     idx=0
     while [ -d "$sub_command_path/$sub_command-commands" ]; do
@@ -125,7 +138,7 @@ _find_command() {
     command_executable=$(_find_executable "$sub_command_path" "$sub_command") || true
     if [ -z "$command_executable" ]; then
         [ -n "$verbose" ] && echo "WARNING: no command executable found for sub command '$sub_command' at '$sub_command_path'!" || true
-        command_executable=$(_find_executable "$script_dir/commands" "$command") || true
+        command_executable=$(_find_executable "$base_dir/commands" "$command") || true
     fi
     if [ -z "$command_executable" ]; then
         if [ "$idx" -gt "0" ]; then
@@ -148,8 +161,8 @@ _find_command "$@" || _usage
 _run_command() {
     set -a
     if [ -n "${environment}" ]; then
-        if ! . $script_dir/.env.$environment 2>/dev/null; then
-            echo "ERROR: could not load config: '$script_dir/.env.$environment'!!!"
+        if ! . $base_dir/.env.$environment 2>/dev/null; then
+            echo "ERROR: could not load config: '$base_dir/.env.$environment'!!!"
             exit 64
         fi
     fi
