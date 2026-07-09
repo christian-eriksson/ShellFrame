@@ -60,10 +60,16 @@ _cli_completions() {
     local commands_provided=()
     local flags_to_current_command=()
     local flag_argument_hint=""
+    # -e is usable at any command depth and only needs to be provided once
+    # for the whole invocation, so track it separately - unlike
+    # flags_to_current_command, this must NOT reset when a new command word
+    # is encountered.
+    local e_flag_provided=false
     for word in "${input_array[@]}"; do
         [ -z "$word" ] && continue
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
+            [ "$word" = "-e" ] && e_flag_provided=true
             local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
             local flag_completions=""
             [ -f "$flag_completions_file" ] && flag_completions="$(cat "$flag_completions_file")"
@@ -106,6 +112,11 @@ $global_e_flag"
         global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
         [ -n "$global_e_flag" ] && completions="$completions $(echo "$global_e_flag" | cut -d" " -f1 | sed 's/\*$//')"
     fi
+    # -e can end up listed twice above (once from the local flags file, once
+    # from the global merge), which would otherwise survive the "remove
+    # already provided flags" step below since it only strips one occurrence
+    # per use. Dedupe so every flag name appears once.
+    completions=$(echo "$completions" | tr " " "\n" | awk 'NF && !seen[$0]++' | tr "\n" " ")
 
     if [ -n "$flag_argument_hint" ]; then
         # A hint that is a pipe-separated list of choices with no spaces
@@ -130,6 +141,7 @@ $global_e_flag"
         for flag in "${flags_to_current_command[@]}"; do
             completions=${completions/$flag/}
         done
+        [ "$e_flag_provided" = true ] && completions=${completions/-e/}
     fi
 
     if [[ "$completion_hint" = -* ]]; then
@@ -166,6 +178,7 @@ $global_e_flag"
     local missing_required_flags=()
     for required_flag in "${required_flags[@]}"; do
         local required_flag_provided=false
+        [ "$required_flag" = "-e" ] && [ "$e_flag_provided" = true ] && required_flag_provided=true
         for used_flag in "${flags_to_current_command[@]}"; do
             [ "$used_flag" = "$required_flag" ] && required_flag_provided=true && break
         done
