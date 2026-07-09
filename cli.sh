@@ -31,11 +31,40 @@ _usage() {
     exit 64
 }
 
-while getopts ":e:vh" opt; do
-    case $opt in
-    e)
-        environment=$OPTARG
+# -e/<ENVIRONMENT> is CLI-wide and, unlike -v/-h, allowed anywhere in the
+# argument list - not just before the command name - so it can be combined
+# freely with command-specific flags, e.g. 'cli command -e dev' works the same
+# as `cli -e dev command`. We Extract it first, then let getopts handle -v/-h
+# (still leading-position only, per each command's own -h/-v contract.
+_raw_args=("$@")
+set --
+_skip_next=false
+for _arg in "${_raw_args[@]}"; do
+    if $_skip_next; then
+        environment="$_arg"
+        _skip_next=false
+        continue
+    fi
+    case "$_arg" in
+    -e)
+        _skip_next=true
         ;;
+    -e?*)
+        environment="${_arg#-e}"
+        ;;
+    *)
+        set -- "$@" "$_arg"
+        ;;
+    esac
+done
+if $_skip_next; then
+    echo "Option '-e' requires an argument." >&2
+    _usage
+fi
+unset _raw_args _skip_next _arg
+
+while getopts ":vh" opt; do
+    case $opt in
     v)
         verbose=-v
         ;;

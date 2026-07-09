@@ -424,6 +424,13 @@ directory of this repo. The commands will all be able to read the variables set
 in these files and you can use the `-e <ENVIRONMENT>` flag to choose which file
 to use.
 
+Unlike `-v` and `-h`, which are only recognized before the `<COMMAND>` (e.g.
+`cli -v one`), `-e <ENVIRONMENT>` can be placed anywhere in the argument list,
+so it can be combined freely with command-specific flags, for example
+`cli one -e dev -q` works the same as `cli -e dev one -q`. Tab completion
+offers `-e` at every command depth for the same reason, while `-v`/`-h` are
+only offered at the top level.
+
 ## Bring your own base command
 
 If the `cli.sh` script does not work for you, you can choose to just use the

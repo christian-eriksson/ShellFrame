@@ -23,6 +23,10 @@ You can configure the cli with different environments by adding one or multiple
 The commands will all be able to read the variables set in this file and you can
 use the '-e' flag to choose which file to use.
 
+Unlike '-v' and '-h', which must appear before the <COMMAND>, '-e <ENVIRONMENT>'
+can be placed anywhere in the argument list, e.g. 'cli one -e dev' and
+'cli -e dev one' are equivalent.
+
 Options:
   -e  <ENVIRONMENT> Selects the environment to run in, default environment is
                     'dev'. If no .env.* file exists, variables need to be

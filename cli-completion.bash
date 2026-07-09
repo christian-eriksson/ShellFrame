@@ -65,10 +65,18 @@ _cli_completions() {
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
             local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
-            if [ ! -f "$flag_completions_file" ]; then
-                continue
+            local flag_completions=""
+            [ -f "$flag_completions_file" ] && flag_completions="$(cat "$flag_completions_file")"
+            # -e <ENVIRONMENT> is the only CLI-wide flag cli.sh accepts at any
+            # command depth (see cli.sh); -v/-h are only accepted in leading
+            # position, so don't offer them here - only merge in -e.
+            local global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
+            if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
+                local global_e_flag=$(grep -e "^-e " "$global_flags_file") || true
+                [ -n "$global_e_flag" ] && flag_completions="$flag_completions
+$global_e_flag"
             fi
-            local flag_completions=$(cat "$flag_completions_file")
+            [ -z "$flag_completions" ] && continue
             flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]} " | cut -d" " -f2-) || true
         else
             if [ -n "$flag_argument_hint" ]; then
@@ -84,6 +92,14 @@ _cli_completions() {
     local completions=""
     if [ -f "$flag_completions_file" ]; then
         completions="$completions $(cat "$flag_completions_file" | cut -d" " -f1)" || true
+    fi
+    # -e <ENVIRONMENT> is the only CLI-wide flag cli.sh accepts at any command
+    # depth (see cli.sh); -v/-h are only accepted in leading position, so
+    # don't offer them here - only merge in -e.
+    global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
+    if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
+        global_e_flag=$(grep -e "^-e " "$global_flags_file") || true
+        [ -n "$global_e_flag" ] && completions="$completions $(echo "$global_e_flag" | cut -d" " -f1)"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
