@@ -103,6 +103,14 @@ $global_e_flag"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
+        # A hint that is a pipe-separated list of choices with no spaces
+        # (e.g. 'foo|bar|baz') is treated as an enum: offer the values as real,
+        # tab-completable/cycleable completions instead of just displaying the
+        # hint text.
+        if [[ "$flag_argument_hint" =~ ^[^[:space:]]+(\|[^[:space:]]+)+$ ]]; then
+            COMPREPLY=($(compgen -W "${flag_argument_hint//|/ }" -- "$completion_hint"))
+            return 0
+        fi
         if [ -z "$ZSH_VERSION" ]; then
             COMPREPLY=("$flag_argument_hint" "")
         fi

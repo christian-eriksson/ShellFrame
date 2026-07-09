@@ -397,6 +397,24 @@ cli one -t integer {tab}{tab}
 > have provided the argument to the flag. This allows you to at least get a hint
 > that you are expected to input something, but not quite what to input.
 
+If the hint is a list of pipe-separated values with no spaces, e.g.
+`foo|bar|baz`, it is treated as an enum instead of a free-form hint. The values
+are offered as real, tab-completable/cycleable completions in both `bash` and
+`zsh` (the `zsh` limitation above only applies to free-form hints). Update
+`one-flags.txt`:
+
+```txt
+-n <NUM>
+-q
+-t consumer|producer
+-w
+```
+
+```sh
+cli one -t {tab}{tab}
+# consumer  producer
+```
+
 ### Completions for base command
 
 If you need flag or command completions from a completions file for the base
