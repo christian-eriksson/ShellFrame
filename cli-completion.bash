@@ -201,4 +201,9 @@ $global_e_flag"
     COMPREPLY=("${matches[@]}")
 }
 
-complete -F _cli_completions $CLI_NAME
+# -o filenames tells bash's readline that COMPREPLY entries may be paths, so it
+# appends '/' (and suppresses the trailing space) for directory matches
+# instead of treating every match as a "finished" word - without this,
+# tab-completing into a directory ends the completion instead of letting you
+# keep completing deeper into the path.
+complete -F _cli_completions -o filenames $CLI_NAME
