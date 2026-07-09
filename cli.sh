@@ -194,6 +194,7 @@ _run_command() {
             echo "ERROR: could not load config: '$base_dir/.env.$environment'!!!"
             exit 64
         fi
+        ENVIRONMENT="$environment"
     fi
     set +a
     arguments=("$@")
