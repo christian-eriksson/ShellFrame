@@ -27,7 +27,7 @@ _search_completion_file() {
         local script_file=$(basename $script_path)
         local script_name="${script_file%.*}"
         file_path="$source_dir/$script_name-$file_type.txt"
-        [ -f "$file_path" ] && echo "$file_path" ||  echo ""
+        [ -f "$file_path" ] && echo "$file_path" || echo ""
         return
     fi
 
@@ -36,15 +36,15 @@ _search_completion_file() {
     for command in "${commands[@]}"; do
         [ -z "$command" ] && continue
         case "$command" in
-            -*)
-                break
+        -*)
+            break
             ;;
-            *)
-                if [ -d "$file_path$command-commands" ]; then
-                    file_path="$file_path$command-commands/"
-                else
-                    file_path="$file_path$command-"
-                fi
+        *)
+            if [ -d "$file_path$command-commands" ]; then
+                file_path="$file_path$command-commands/"
+            else
+                file_path="$file_path$command-"
+            fi
             ;;
         esac
     done
@@ -143,9 +143,10 @@ $global_e_flag"
     fi
 
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
-        local command_completions=$(find -L "$completions_directory/" -maxdepth 1 \
-            -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
-            tr "\n" " "
+        local command_completions=$(
+            find -L "$completions_directory/" -maxdepth 1 \
+                -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
+                tr "\n" " "
         )
         completions="$completions $command_completions"
     fi
