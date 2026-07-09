@@ -415,6 +415,46 @@ cli one -t {tab}{tab}
 # consumer  producer
 ```
 
+If a command has no completions file and no sub-commands directory, it is
+expected to take a free-form positional argument instead (e.g.
+`<path-to-file>`). Real filesystem paths are then offered as completions,
+merged together with any flags that haven't been used yet, so you can tab
+through both:
+
+```txt
+cli.sh
+commands/
+  |-- put.sh
+  |-- put-flags.txt
+```
+
+```txt
+# put-flags.txt
+-p <PATH>
+-q
+```
+
+```sh
+cli put {tab}{tab}
+# -p     -q     bar.txt  foo.txt
+```
+
+To mark a flag as required, append a `*` directly after the flag name (before
+the hint, if any). Required flags must all be provided before filesystem paths
+are offered, so paths aren't mixed in with flags you still need to supply:
+
+```txt
+-p* <PATH>
+-q
+```
+
+```sh
+cli put {tab}{tab}
+# -p  -q
+cli put -p /tmp/x {tab}{tab}
+# -q  bar.txt  foo.txt
+```
+
 ### Completions for base command
 
 If you need flag or command completions from a completions file for the base
@@ -448,6 +488,54 @@ so it can be combined freely with command-specific flags, for example
 `cli one -e dev -q` works the same as `cli -e dev one -q`. Tab completion
 offers `-e` at every command depth for the same reason, while `-v`/`-h` are
 only offered at the top level.
+
+### The `-e` flag
+
+`cli.sh` defines what `-e` _does_: it takes a string, placeholder: `<ENVIRONMENT>`,
+and loads the matching `.env.<ENVIRONMENT>` file, regardless of which command
+you run. The completion script's support for `-e` at any command depth is purely
+about _offering_ the flag and its hint everywhere it's usable - it does not
+decide which `<ENVIRONMENT>` values should be suggested. The suggestions are set
+once in the base command's own flags file (`cli-flags.txt`, next to `cli.sh`)
+and apply to the whole cli:
+
+```txt
+cli.sh
+cli-flags.txt
+commands/
+```
+
+```txt
+# cli-flags.txt
+-h
+-v
+-e local|dev|test|prod
+```
+
+Every command then automatically gets the same `-e local|dev|test|prod` hint,
+without needing to repeat it in each `{command}-flags.txt`.
+
+If a specific command should require `-e` to be set, add a bare `-e*` line
+(no hint) to that command's own `{command}-flags.txt`. This marks `-e` as
+required for that command only, while the actual hint/enum values still come
+from `cli-flags.txt`:
+
+```txt
+# one-flags.txt
+-q
+-e*
+```
+
+```sh
+cli one {tab}{tab}
+# -q  -e
+cli one -e {tab}{tab}
+# dev  local  prod  test
+```
+
+`cli one` won't offer file completions (see [flag completions](#flag-completions))
+until `-e` has been provided, but other commands without their own `-e*` line
+are unaffected and can still use `-e` as an optional flag.
 
 ## Bring your own base command
 
@@ -544,4 +632,3 @@ point instead of `cli.sh` directly, see [bring your own base command](#bring-you
 Such a wrapper can also `export CLI_NAME=your-cli-name` before invoking `cli.sh`,
 so that `cli.sh` uses that name (instead of its own filename) when looking up
 `*-usage.txt` / `*-help.txt`.
-

@@ -72,12 +72,12 @@ _cli_completions() {
             # position, so don't offer them here - only merge in -e.
             local global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
             if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
-                local global_e_flag=$(grep -e "^-e " "$global_flags_file") || true
+                local global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
                 [ -n "$global_e_flag" ] && flag_completions="$flag_completions
 $global_e_flag"
             fi
             [ -z "$flag_completions" ] && continue
-            flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]} " | cut -d" " -f2-) || true
+            flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]}\*\? " | cut -d" " -f2-) || true
         else
             if [ -n "$flag_argument_hint" ]; then
                 flag_argument_hint=""
@@ -90,16 +90,21 @@ $global_e_flag"
 
     flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
     local completions=""
+    # A flag line ending in '*' (before the hint, if any) marks that flag as
+    # required - collect these so we know when it's safe to also offer
+    # positional-argument completions (see has_defined_completions below).
+    local required_flags=()
     if [ -f "$flag_completions_file" ]; then
-        completions="$completions $(cat "$flag_completions_file" | cut -d" " -f1)" || true
+        completions="$completions $(cat "$flag_completions_file" | cut -d" " -f1 | sed 's/\*$//')" || true
+        required_flags=($(cat "$flag_completions_file" | cut -d" " -f1 | grep -e '\*$' | sed 's/\*$//'))
     fi
     # -e <ENVIRONMENT> is the only CLI-wide flag cli.sh accepts at any command
     # depth (see cli.sh); -v/-h are only accepted in leading position, so
     # don't offer them here - only merge in -e.
     global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
     if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
-        global_e_flag=$(grep -e "^-e " "$global_flags_file") || true
-        [ -n "$global_e_flag" ] && completions="$completions $(echo "$global_e_flag" | cut -d" " -f1)"
+        global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
+        [ -n "$global_e_flag" ] && completions="$completions $(echo "$global_e_flag" | cut -d" " -f1 | sed 's/\*$//')"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
@@ -142,6 +147,7 @@ $global_e_flag"
         local completions_directory="${completions_file%completions.txt}commands"
     fi
 
+    local has_defined_completions=false
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
         local command_completions=$(
             find -L "$completions_directory/" -maxdepth 1 \
@@ -149,13 +155,37 @@ $global_e_flag"
                 tr "\n" " "
         )
         completions="$completions $command_completions"
+        has_defined_completions=true
     fi
 
     if [ -n "$completions_file" ] && [ -f "$completions_file" ]; then
         completions="$completions $(cat "$completions_file")"
+        has_defined_completions=true
     fi
 
-    COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
+    local missing_required_flags=()
+    for required_flag in "${required_flags[@]}"; do
+        local required_flag_provided=false
+        for used_flag in "${flags_to_current_command[@]}"; do
+            [ "$used_flag" = "$required_flag" ] && required_flag_provided=true && break
+        done
+        [ "$required_flag_provided" = false ] && missing_required_flags+=("$required_flag")
+    done
+
+    local matches=($(compgen -W "$completions" -- "$completion_hint"))
+    if [ "$has_defined_completions" = false ] && [ "${#missing_required_flags[@]}" -eq 0 ]; then
+        # There is no sub-commands directory or completions file defined for
+        # this command - it expects a free-form positional argument (e.g.
+        # <path-to-file>). Merge in real filesystem paths alongside any still-
+        # available optional flags, so leftover unused optional flags don't
+        # "block" reaching path completion (bash auto-inserts a single
+        # remaining match instead of listing paths). Only do this once all
+        # required flags have been provided, so files aren't mixed in with
+        # flags the user still needs to supply.
+        matches+=($(compgen -f -- "$completion_hint"))
+    fi
+
+    COMPREPLY=("${matches[@]}")
 }
 
 complete -F _cli_completions $CLI_NAME
