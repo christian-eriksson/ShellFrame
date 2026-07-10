@@ -119,11 +119,11 @@ $global_e_flag"
     completions=$(echo "$completions" | tr " " "\n" | awk 'NF && !seen[$0]++' | tr "\n" " ")
 
     if [ -n "$flag_argument_hint" ]; then
-        # A hint that is a pipe-separated list of choices with no spaces
-        # (e.g. 'foo|bar|baz') is treated as an enum: offer the values as real,
-        # tab-completable/cycleable completions instead of just displaying the
-        # hint text.
-        if [[ "$flag_argument_hint" =~ ^[^[:space:]]+(\|[^[:space:]]+)+$ ]]; then
+        # A hint that is one or more pipe-separated choices with no spaces
+        # (e.g. 'foo|bar|baz', or a single bare value like 'foo') is treated
+        # as an enum: offer the values as real, tab-completable/cycleable
+        # completions instead of just displaying.
+        if [[ "$flag_argument_hint" =~ ^[^[:space:]]+(\|[^[:space:]]+)*$ ]]; then
             COMPREPLY=($(compgen -W "${flag_argument_hint//|/ }" -- "$completion_hint"))
             return 0
         fi
