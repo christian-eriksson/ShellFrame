@@ -369,7 +369,7 @@ the completions file. To add a flags `-n` and `-t` that both take an argument
 to the example above we update the `one-flags.txt` file:
 
 ```txt
--n <NUM>
+-n ::NUM::
 -q
 -t type of number
 -w
@@ -385,26 +385,21 @@ cli one {tab}{tab}
 cli one -{tab}{tab}
 # -n  -q  -w
 cli one -n {tab}{tab}
-#        <NUM>
+#        ::NUM::
 cli one -t {tab}{tab}
 #                 type of number
 cli one -t integer {tab}{tab}
 # -n     -q     three  two    -w
 ```
 
-> **NOTE:** If you are using `zsh` you will not get the flag hint (this is due
-> to how `zsh` handles auto completions) instead you will get no hint until you
-> have provided the argument to the flag. This allows you to at least get a hint
-> that you are expected to input something, but not quite what to input.
+If the hint is one or more pipe-separated values with no spaces, e.g. `foo|bar`
+or just a single bare value like `foo`, it is treated as an enum. The values are
+offered as real, tab-completable/cycleable completions in both `bash` and `zsh`.
 
-If the hint is a list of pipe-separated values with no spaces, e.g.
-`foo|bar|baz`, it is treated as an enum instead of a free-form hint. The values
-are offered as real, tab-completable/cycleable completions in both `bash` and
-`zsh` (the `zsh` limitation above only applies to free-form hints). Update
-`one-flags.txt`:
+Update `one-flags.txt`:
 
 ```txt
--n <NUM>
+-n ::NUM::
 -q
 -t consumer|producer
 -w
@@ -414,6 +409,40 @@ are offered as real, tab-completable/cycleable completions in both `bash` and
 cli one -t {tab}{tab}
 # consumer  producer
 ```
+
+A hint wrapped in double colons, e.g. `::NUM::`, is treated as a placeholder
+rather than an enum - it stands in for a value you're meant to type yourself,
+not a literal value to pick, so it is never offered as a tab-completable
+choice.
+
+Any other hint containing spaces (e.g. `type of number`) is treated as a
+free-form description rather than a placeholder or an enum.
+
+Placeholders and descriptions are both only ever displayed in `bash`, never
+auto-completed as-is. `zsh` behaves differently for the two:
+
+```sh
+# placeholder - inserted directly as a starting point
+cli one -n {tab}
+cli one -n ::NUM::
+
+# description - ignored, falls back to completing the remaining flags
+cli one -t {tab}
+cli one -t {tab}{tab}
+# -n  -q  -w
+```
+
+> **NOTE:** `zsh`'s `bashcompinit` compatibility layer runs completion
+> functions in a way that makes it impossible to display a hint that isn't
+> also insertable (see the comment above `_cli_completions` in
+> `cli-completion.bash` for the technical reason), so a `bash`-style
+> display-only hint can't be replicated as-is in `zsh`. A placeholder hint
+> (`::NAME::`) is safe to insert directly - it's just a short string you're
+> expected to overwrite - so that's what `zsh` does. A description is too long
+> to insert as the user won't want to go backstep and delete it before replacing
+> it with an actual value.
+
+
 
 If a command has no completions file and no sub-commands directory, it is
 expected to take a free-form positional argument instead (e.g.
@@ -430,7 +459,7 @@ commands/
 
 ```txt
 # put-flags.txt
--p <PATH>
+-p ::PATH::
 -q
 ```
 
@@ -444,7 +473,7 @@ the hint, if any). Required flags must all be provided before filesystem paths
 are offered, so paths aren't mixed in with flags you still need to supply:
 
 ```txt
--p* <PATH>
+-p* ::PATH::
 -q
 ```
 

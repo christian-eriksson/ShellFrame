@@ -118,30 +118,82 @@ $global_e_flag"
     # per use. Dedupe so every flag name appears once.
     completions=$(echo "$completions" | tr " " "\n" | awk 'NF && !seen[$0]++' | tr "\n" " ")
 
-    if [ -n "$flag_argument_hint" ]; then
-        # A hint that is one or more pipe-separated choices with no spaces
-        # (e.g. 'foo|bar|baz', or a single bare value like 'foo') is treated
-        # as an enum: offer the values as real, tab-completable/cycleable
-        # completions instead of just displaying.
-        if [[ "$flag_argument_hint" =~ ^[^[:space:]]+(\|[^[:space:]]+)*$ ]]; then
-            COMPREPLY=($(compgen -W "${flag_argument_hint//|/ }" -- "$completion_hint"))
-            return 0
-        fi
-        if [ -z "$ZSH_VERSION" ]; then
-            COMPREPLY=("$flag_argument_hint" "")
-        fi
-        return 0
-    fi
-
     # We don't want to remove the flag we are potentially about to provide,
     # as something like 'cli -v -h{tab}' will not be auto completed if '-h' is
     # removed from the completion list. So we only remove if we are starting a
-    # new flag or are not providing a flag.
+    # new flag or are not providing a flag. Done before the flag_argument_hint
+    # check below so zsh's fallback (merging in remaining flags alongside a
+    # free-form hint) doesn't re-suggest flags already provided.
     if ! ([[ "$completion_hint" = -* ]] && [ "${#completion_hint}" -eq 2 ]); then
         for flag in "${flags_to_current_command[@]}"; do
             completions=${completions/$flag/}
         done
         [ "$e_flag_provided" = true ] && completions=${completions/-e/}
+    fi
+
+    if [ -n "$flag_argument_hint" ]; then
+        # A hint that is one or more pipe-separated choices with no spaces
+        # (e.g. 'foo|bar|baz'), or a single bare value (e.g. 'foo'), is a real
+        # enum: offer the values as real, tab-completable/cycleable
+        # completions via compgen in both shells.
+        #
+        # A hint written as '::NAME::' (e.g. '::NUM::', '::ENVIRONMENT::') is
+        # a placeholder standing in for a value the user is meant to type
+        # themselves, not a literal value - it must never be treated as an
+        # enum/auto-completed like one, only ever surfaced as a hint (see
+        # below for the per-shell behavior). '::NAME::'-style placeholders
+        # are chosen (rather than e.g. '<NAME>') because '<', '>', '{}',
+        # '[]', '$' and '=' are all shell metacharacters that bash/zsh
+        # backslash-escape on insertion (e.g. '<NUM>' -> '\<NUM\>'); ':' does
+        # not need escaping, so the placeholder can be inserted/displayed
+        # cleanly where we do choose to insert it.
+        local is_placeholder=false
+        [[ "$flag_argument_hint" =~ ^::[^:[:space:]]+::$ ]] && is_placeholder=true
+
+        if [ "$is_placeholder" = false ] && [[ "$flag_argument_hint" != *[[:space:]]* ]]; then
+            COMPREPLY=($(compgen -W "${flag_argument_hint//|/ }" -- "$completion_hint"))
+            return 0
+        fi
+
+        # What's left is either a placeholder ('::NAME::') or a free-form
+        # description (contains spaces, e.g. 'insert name here') - neither is
+        # a literal value, so bash only ever displays it, never inserts it.
+        #
+        # This is only safe to do in bash while the user hasn't typed
+        # anything yet (completion_hint is empty): unconditionally offering
+        # the hint text regardless of what's been typed breaks readline's
+        # assumption that candidates share the current word as a prefix,
+        # which - combined with the '-o filenames' quoting this CLI
+        # registers with - causes the input to be re-quoted (backslash
+        # doubled) on every subsequent Tab press once the user has typed
+        # something that doesn't match (e.g. a stray '\').
+        #
+        # zsh's bashcompinit dispatches registered `complete -F` functions via
+        # `_bash_complete` -> `compgen`, and that call chain runs inside a
+        # subshell (the `$(compgen ...)` command substitution in
+        # `_bash_complete`). Any zsh-native completion state changes made in
+        # a subshell (e.g. via `compadd`/`_message`) are lost when the
+        # subshell exits - only text written to COMPREPLY (and captured via
+        # stdout) makes it back to the real completion widget, so a
+        # message-only, non-insertable hint is not achievable in zsh. So for
+        # a placeholder, zsh instead inserts the placeholder text directly as
+        # a starting point (safe/useful since it stands in for a value); a
+        # description isn't safe to insert (the user wouldn't know it's a
+        # description rather than a value to keep), so zsh just ignores it
+        # and falls through to completing the remaining flags instead, same
+        # as if no hint had been given.
+        if [ -z "$ZSH_VERSION" ]; then
+            if [ -z "$completion_hint" ]; then
+                COMPREPLY=("$flag_argument_hint" "")
+            else
+                COMPREPLY=()
+            fi
+        elif [ "$is_placeholder" = true ]; then
+            COMPREPLY=("$flag_argument_hint")
+        else
+            COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
+        fi
+        return 0
     fi
 
     if [[ "$completion_hint" = -* ]]; then
