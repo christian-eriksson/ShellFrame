@@ -65,12 +65,12 @@ commands/
 ```
 
 The command scripts need to accept the `-h` flag and display a help text for the
-command then exit (with `0` status) if provided. It must also accept the `-v`
-flag, for verbose output, and execute normally if it is provided (with some
-extra logs if verbose logging is implemented). When `cli.sh -h` is called it
-will call the executables in `commands` to compile the help text for the cli.
-Similarly, the `-v` flag is passed to any executable in `commands` if
-`cli.sh -v <command>` is invoked.
+command then exit (with `0` status) if provided. If a command wants to support
+verbose output, it can check the `$SHELLFRAME_VERBOSE` environment variable
+(set when `-v` is given, see [The `-v` flag](#the--v-flag)) and log extra
+output accordingly - unlike `-h`, `-v` is never passed to a command as a
+literal argument, only via that variable. When `cli.sh -h` is called it will
+call the executables in `commands` to compile the help text for the cli.
 
 > **NOTE:** only commands directly in the `commands` directory needs to adhere
 > to this interface. Any behavior of any potential sub-command is an
@@ -511,12 +511,14 @@ directory of this repo. The commands will all be able to read the variables set
 in these files and you can use the `-e <ENVIRONMENT>` flag to choose which file
 to use.
 
-Unlike `-v` and `-h`, which are only recognized before the `<COMMAND>` (e.g.
-`cli -v one`), `-e <ENVIRONMENT>` can be placed anywhere in the argument list,
-so it can be combined freely with command-specific flags, for example
-`cli one -e dev -q` works the same as `cli -e dev one -q`. Tab completion
-offers `-e` at every command depth for the same reason, while `-v`/`-h` are
-only offered at the top level.
+Unlike `-h`, which is only recognized before the `<COMMAND>` (e.g.
+`cli -h`), `-e <ENVIRONMENT>` and `-v` can be placed anywhere in the
+argument list, so they can be combined freely with command-specific flags,
+for example `cli one -e dev -v -q` works the same as `cli -e dev -v one -q`.
+Tab completion offers both `-e` and `-v` at every command depth for the
+same reason - both are read once from the base command's own flags file
+(`cli-flags.txt`) and merged in everywhere, while `-h` is only offered at
+the top level.
 
 ### The `-e` flag
 
@@ -568,6 +570,22 @@ cli one -e {tab}{tab}
 `cli one` won't offer file completions (see [flag completions](#flag-completions))
 until `-e` has been provided, but other commands without their own `-e*` line
 are unaffected and can still use `-e` as an optional flag.
+
+### The `-v` flag
+
+`-v` is a bare flag (no value): when given, `cli.sh` exports
+`$SHELLFRAME_VERBOSE=1` (prefixed so it doesn't collide with a project's own
+`$VERBOSE`, if any), regardless of which command you run, and prints some of
+its own dispatch details (which command it found, with which arguments) to
+help debug the cli itself. Like `-e`, `-v` is never passed to a command as a
+literal argument - a command that wants to act on it reads
+`$SHELLFRAME_VERBOSE` itself and decides what to do (e.g. forward its own
+`-v` flag to a tool it dispatches to).
+
+Like `-e`, `-v` only needs to be listed once, as a bare `-v` line in the base
+command's own flags file (`cli-flags.txt`, next to `cli.sh`), to be offered
+as a completion at every command depth - no need to repeat it in each
+`{command}-flags.txt`.
 
 ## Bring your own base command
 

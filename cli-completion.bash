@@ -60,27 +60,33 @@ _cli_completions() {
     local commands_provided=()
     local flags_to_current_command=()
     local flag_argument_hint=""
-    # -e is usable at any command depth and only needs to be provided once
-    # for the whole invocation, so track it separately - unlike
-    # flags_to_current_command, this must NOT reset when a new command word
-    # is encountered.
+    # -e and -v are both usable at any command depth and only need to be
+    # provided once for the whole invocation, so track them separately -
+    # unlike flags_to_current_command, these must NOT reset when a new
+    # command word is encountered.
     local e_flag_provided=false
+    local v_flag_provided=false
     for word in "${input_array[@]}"; do
         [ -z "$word" ] && continue
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
             [ "$word" = "-e" ] && e_flag_provided=true
+            [ "$word" = "-v" ] && v_flag_provided=true
             local flag_completions_file=($(_search_completion_file "flags" "${commands_provided[@]}"))
             local flag_completions=""
             [ -f "$flag_completions_file" ] && flag_completions="$(cat "$flag_completions_file")"
-            # -e <ENVIRONMENT> is the only CLI-wide flag cli.sh accepts at any
-            # command depth (see cli.sh); -v/-h are only accepted in leading
-            # position, so don't offer them here - only merge in -e.
+            # -e <ENVIRONMENT> and -v are merged in here at every command
+            # depth (see cli.sh), since ShellFrame accepts both anywhere in
+            # the argument list; -h is only accepted in leading position,
+            # so it's never offered here.
             local global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
             if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
                 local global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
                 [ -n "$global_e_flag" ] && flag_completions="$flag_completions
 $global_e_flag"
+                local global_v_flag=$(grep -e "^-v\*\?$" "$global_flags_file") || true
+                [ -n "$global_v_flag" ] && flag_completions="$flag_completions
+$global_v_flag"
             fi
             [ -z "$flag_completions" ] && continue
             flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]}\*\? " | cut -d" " -f2-) || true
@@ -104,16 +110,18 @@ $global_e_flag"
         completions="$completions $(cat "$flag_completions_file" | cut -d" " -f1 | sed 's/\*$//')" || true
         required_flags=($(cat "$flag_completions_file" | cut -d" " -f1 | grep -e '\*$' | sed 's/\*$//'))
     fi
-    # -e <ENVIRONMENT> is the only CLI-wide flag cli.sh accepts at any command
-    # depth (see cli.sh); -v/-h are only accepted in leading position, so
-    # don't offer them here - only merge in -e.
+    # -e <ENVIRONMENT> and -v are merged in here at every command depth (see
+    # cli.sh), since ShellFrame accepts both anywhere in the argument list;
+    # -h is only accepted in leading position, so it's never offered here.
     global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
     if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
         global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
         [ -n "$global_e_flag" ] && completions="$completions $(echo "$global_e_flag" | cut -d" " -f1 | sed 's/\*$//')"
+        global_v_flag=$(grep -e "^-v\*\?$" "$global_flags_file") || true
+        [ -n "$global_v_flag" ] && completions="$completions $(echo "$global_v_flag" | cut -d" " -f1 | sed 's/\*$//')"
     fi
-    # -e can end up listed twice above (once from the local flags file, once
-    # from the global merge), which would otherwise survive the "remove
+    # -e/-v can end up listed twice above (once from the local flags file,
+    # once from the global merge), which would otherwise survive the "remove
     # already provided flags" step below since it only strips one occurrence
     # per use. Dedupe so every flag name appears once.
     completions=$(echo "$completions" | tr " " "\n" | awk 'NF && !seen[$0]++' | tr "\n" " ")
@@ -129,6 +137,7 @@ $global_e_flag"
             completions=${completions/$flag/}
         done
         [ "$e_flag_provided" = true ] && completions=${completions/-e/}
+        [ "$v_flag_provided" = true ] && completions=${completions/-v/}
     fi
 
     if [ -n "$flag_argument_hint" ]; then

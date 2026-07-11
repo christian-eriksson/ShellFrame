@@ -31,11 +31,12 @@ _usage() {
     exit 64
 }
 
-# -e/<ENVIRONMENT> is CLI-wide and, unlike -v/-h, allowed anywhere in the
-# argument list - not just before the command name - so it can be combined
-# freely with command-specific flags, e.g. 'cli command -e dev' works the same
-# as `cli -e dev command`. We Extract it first, then let getopts handle -v/-h
-# (still leading-position only, per each command's own -h/-v contract.
+# -e/<ENVIRONMENT> and -v are CLI-wide and, unlike -h, allowed anywhere in
+# the argument list - not just before the command name - so they can be
+# combined freely with command-specific flags, e.g. 'cli command -e dev -v'
+# works the same as `cli -e dev -v command`. We extract them first, then let
+# getopts handle -h (still leading-position only, per each command's own -h
+# contract).
 _raw_args=("$@")
 set --
 _skip_next=false
@@ -52,6 +53,9 @@ for _arg in "${_raw_args[@]}"; do
     -e?*)
         environment="${_arg#-e}"
         ;;
+    -v)
+        verbose=1
+        ;;
     *)
         set -- "$@" "$_arg"
         ;;
@@ -63,11 +67,8 @@ if $_skip_next; then
 fi
 unset _raw_args _skip_next _arg
 
-while getopts ":vh" opt; do
+while getopts ":h" opt; do
     case $opt in
-    v)
-        verbose=-v
-        ;;
     h)
         help=-h
         ;;
@@ -196,6 +197,7 @@ _run_command() {
         fi
         SHELLFRAME_ENVIRONMENT="$environment"
     fi
+    [ -n "$verbose" ] && SHELLFRAME_VERBOSE=1
     set +a
     arguments=("$@")
 
@@ -220,13 +222,13 @@ _run_command() {
         if [ -d "$command_path" ]; then
             echo "ERROR: no sub command in path '$command_path'!" && exit 64
         fi
-        "$command_path" $verbose "${arguments[@]}"
+        "$command_path" "${arguments[@]}"
     fi
 }
 
 if [ -x "$command_path" ] || ([ -L "$command_path" ] && [ -x "$(readlink $command_path)" ]); then
     [ -n "$verbose" ] && echo "running command: $command_path"
-    [ -n "$verbose" ] && echo "with arguments: $verbose ${arguments[@]}"
+    [ -n "$verbose" ] && echo "with arguments: ${arguments[@]}"
     (_run_command "${arguments[@]}") || ([ "$?" -eq 64 ] && _usage)
 else
     [ -n "$verbose" ] && echo "command file '$command_path' does not exist or is not executable"
