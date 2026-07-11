@@ -522,11 +522,14 @@ only offered at the top level.
 
 `cli.sh` defines what `-e` _does_: it takes a string, placeholder: `<ENVIRONMENT>`,
 and loads the matching `.env.<ENVIRONMENT>` file, regardless of which command
-you run. The completion script's support for `-e` at any command depth is purely
-about _offering_ the flag and its hint everywhere it's usable - it does not
-decide which `<ENVIRONMENT>` values should be suggested. The suggestions are set
-once in the base command's own flags file (`cli-flags.txt`, next to `cli.sh`)
-and apply to the whole cli:
+you run. The chosen value is also exported as `$SHELLFRAME_ENVIRONMENT`
+(prefixed so it doesn't collide with a project's own `$ENVIRONMENT`, if any),
+so a command can tell which environment was selected even if the `.env` file
+doesn't define a variable for that itself. The completion script's support for
+`-e` at any command depth is purely about _offering_ the flag and its hint
+everywhere it's usable - it does not decide which `<ENVIRONMENT>` values should
+be suggested. The suggestions are set once in the base command's own flags file
+(`cli-flags.txt`, next to `cli.sh`) and apply to the whole cli:
 
 ```txt
 cli.sh
