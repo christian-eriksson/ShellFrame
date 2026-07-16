@@ -5,13 +5,13 @@ set -e -o pipefail
 script_dir=$(realpath $(dirname "$0"))
 filename=$(basename "$0")
 command=${filename%.*}
-usage_string="${filename%.*} [-v] [-h] -e <NAME> <DIRECTION>"
+usage_string="${filename%.*} [-v] [-h] -n <NAME> <DIRECTION>"
 _usage () {
     echo "command: $usage_string"
     exit 64
 }
 
-while getopts ":vhe:" opt; do
+while getopts ":vhn:" opt; do
     case $opt in
         v)
             verbose=-v
@@ -20,7 +20,7 @@ while getopts ":vhe:" opt; do
         h)
             help=-h
         ;;
-        e)
+        n)
             vehicle=$OPTARG
         ;;
         \?)
@@ -47,7 +47,7 @@ Takes you in new directions.
 Options:
   -v                        Verbose output, use for debugging.
   -h                        Show this help text
-  -e <NAME>     (required)  The vehicle that will be going in some direction
+  -n <NAME>     (required)  The vehicle that will be going in some direction
 
   <DIRECTION>               The direction you want to go in. Valid directions
                             are 'left' and 'right'

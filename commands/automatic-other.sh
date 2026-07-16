@@ -1,13 +1,7 @@
 #!/bin/bash
 
-while getopts ":e:vh" opt; do
+while getopts ":h" opt; do
     case $opt in
-    e)
-        environment=$OPTARG
-        ;;
-    v)
-        verbose=-v
-        ;;
     h)
         help=-h
         ;;

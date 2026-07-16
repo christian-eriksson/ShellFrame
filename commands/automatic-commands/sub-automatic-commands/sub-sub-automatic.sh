@@ -4,14 +4,8 @@ echo "Hello from: $(realpath $0) $@"
 
 echo "1: '$1' | 2: '$2' | 3: '$3'"
 
-while getopts ":e:vh" opt; do
+while getopts ":h" opt; do
     case $opt in
-    e)
-        environment="$OPTARG"
-        ;;
-    v)
-        verbose=-v
-        ;;
     h)
         help=-h
         ;;
@@ -26,4 +20,4 @@ while getopts ":e:vh" opt; do
     esac
 done
 
-echo "help: '$help' | verbose: '$verbose' | environment: '$environment'"
+echo "help: '$help' | verbose: '$SHELLFRAME_VERBOSE' | environment: '$SHELLFRAME_ENVIRONMENT'"

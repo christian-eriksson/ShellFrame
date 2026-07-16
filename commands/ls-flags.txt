@@ -1,4 +1,4 @@
--v
 -h
 -a
 -l
+-e small|medium|large

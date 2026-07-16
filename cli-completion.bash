@@ -78,15 +78,23 @@ _cli_completions() {
             # -e <ENVIRONMENT> and -v are merged in here at every command
             # depth (see cli.sh), since ShellFrame accepts both anywhere in
             # the argument list; -h is only accepted in leading position,
-            # so it's never offered here.
+            # so it's never offered here. Skipped when the command's own
+            # flags file already defines -e/-v itself (e.g. to narrow the
+            # <ENVIRONMENT> hint) - otherwise both lines would end up
+            # concatenated and the hint lookup below would return more
+            # than one match.
             local global_flags_file=($(_search_completion_file "flags" "${commands_provided[0]}"))
             if [ -f "$global_flags_file" ] && [ "$global_flags_file" != "$flag_completions_file" ]; then
-                local global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
-                [ -n "$global_e_flag" ] && flag_completions="$flag_completions
+                if ! grep -q -e "^-e\*\? " <<<"$flag_completions"; then
+                    local global_e_flag=$(grep -e "^-e\*\? " "$global_flags_file") || true
+                    [ -n "$global_e_flag" ] && flag_completions="$flag_completions
 $global_e_flag"
-                local global_v_flag=$(grep -e "^-v\*\?$" "$global_flags_file") || true
-                [ -n "$global_v_flag" ] && flag_completions="$flag_completions
+                fi
+                if ! grep -q -e "^-v\*\?$" <<<"$flag_completions"; then
+                    local global_v_flag=$(grep -e "^-v\*\?$" "$global_flags_file") || true
+                    [ -n "$global_v_flag" ] && flag_completions="$flag_completions
 $global_v_flag"
+                fi
             fi
             [ -z "$flag_completions" ] && continue
             flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]}\*\? " | cut -d" " -f2-) || true

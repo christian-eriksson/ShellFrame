@@ -520,6 +520,21 @@ same reason - both are read once from the base command's own flags file
 (`cli-flags.txt`) and merged in everywhere, while `-h` is only offered at
 the top level.
 
+**`-e` and `-v` are reserved and cannot be redefined by a command.** Both
+are stripped out of the argument list before your command ever runs (see
+above) and are never passed through as a literal flag - a command's own
+`getopts`/flag parsing will simply never see a `-e` or `-v` the user typed,
+no matter what optstring it declares. Giving your own command's `-e`/`-v` a
+different meaning (e.g. a required `-e <NAME>` for something other than an
+environment) doesn't just get ignored - `cli.sh` still intercepts the value
+and tries to load it as `.env.<value>`, so the command becomes unusable
+whenever that flag is actually passed (`.env.<value>` won't exist, causing
+an unrelated "could not load config" error instead of reaching the
+command). Use a different flag letter for anything that isn't literally
+"which environment"/"verbose logging", and read `$SHELLFRAME_ENVIRONMENT`/
+`$SHELLFRAME_VERBOSE` directly instead of trying to parse `-e`/`-v`
+yourself - see the two sections below.
+
 ### The `-e` flag
 
 `cli.sh` defines what `-e` _does_: it takes a string, placeholder: `<ENVIRONMENT>`,

@@ -1,3 +1,2 @@
 -f C printf style formatting string
--v
 -h
