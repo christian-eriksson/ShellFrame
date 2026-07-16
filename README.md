@@ -72,6 +72,17 @@ output accordingly - unlike `-h`, `-v` is never passed to a command as a
 literal argument, only via that variable. When `cli.sh -h` is called it will
 call the executables in `commands` to compile the help text for the cli.
 
+When a command is invoked directly (e.g. `cli one ...`) and `-h` appears
+anywhere in its arguments, `cli.sh` first looks for an optional
+`one-help.txt` file next to `one.sh`; if present, that file is printed
+instead of running the command at all. If no such file exists, `cli.sh`
+invokes the command with its full, original argument list (including `-h`
+in whatever position it was given), so the command itself decides how to
+handle `-h` - for example showing different help depending on a
+sub-command that came before it. The `<command>-help.txt` shortcut is
+meant for commands whose help doesn't depend on their arguments; anything
+more contextual should be handled by the command itself.
+
 > **NOTE:** only commands directly in the `commands` directory needs to adhere
 > to this interface. Any behavior of any potential sub-command is an
 > implementation detail left to the executables in the `commands` directory.

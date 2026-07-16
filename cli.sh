@@ -216,7 +216,7 @@ _run_command() {
             cat $help_file
             printf -- "\n"
         else
-            "$command_path" -h
+            "$command_path" "${arguments[@]}"
         fi
     else
         if [ -d "$command_path" ]; then
