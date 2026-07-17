@@ -40,8 +40,20 @@ _search_completion_file() {
             break
             ;;
         *)
-            if [ -d "$file_path$command-commands" ]; then
+            if [ -d "$file_path$command/$command-commands" ]; then
+                # Sub-commands directory nested inside the command's own
+                # single-command directory (commands/<name>/<name>-commands/)
+                # - checked before the sibling form below so a command using
+                # the nested single-command directory convention can keep its
+                # sub-commands together with it - see cli.sh's _find_command.
+                file_path="$file_path$command/$command-commands/"
+            elif [ -d "$file_path$command-commands" ]; then
                 file_path="$file_path$command-commands/"
+            elif [ -d "$file_path$command" ]; then
+                # Nested single-command directory (commands/<name>/<name>-*),
+                # not to be confused with the "$command-commands/" sub-command
+                # dir above - see cli.sh's _find_executable comment.
+                file_path="$file_path$command/$command-"
             else
                 file_path="$file_path$command-"
             fi
@@ -232,9 +244,18 @@ $global_v_flag"
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
         local command_completions=$(
             find -L "$completions_directory/" -maxdepth 1 \
-                -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';' |
-                tr "\n" " "
+                -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';'
+            # Nested single-command directories (commands/<name>/<name>.<ext>),
+            # not to be confused with a "*-commands" sub-command dir - see
+            # cli.sh's _find_executable comment.
+            find -L "$completions_directory/" -maxdepth 1 -type d -not -name '*-commands' -print |
+                while read -r nested_dir; do
+                    nested_name=$(basename "$nested_dir")
+                    find -L "$nested_dir/" -maxdepth 1 -iname "$nested_name.*" -perm -111 -not -type d -print |
+                        grep -q "$nested_name\.[[:alnum:]]\+$" && echo "$nested_name"
+                done
         )
+        command_completions=$(echo "$command_completions" | tr "\n" " ")
         completions="$completions $command_completions"
         has_defined_completions=true
     fi

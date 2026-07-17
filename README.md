@@ -175,6 +175,35 @@ ShellFrame would then automatically discover the commands and their completions.
 If you were to share this directory, the relative links (as long as links are
 supported on the target system) should not break.
 
+### Nested command directories
+
+If a base command accumulates several completion/flag files of its own (e.g.
+`one-flags.txt`, `one-completions.txt`, plus one file per sub-command flag
+set), `commands/` can get cluttered with files that all belong to the same
+command. To keep them together, move `one.sh` and all of its `one-*.txt`
+files into a subdirectory named after the command, keeping every filename
+exactly the same:
+
+```txt
+cli.sh
+commands/
+  |-- one/
+  |     |-- one.sh
+  |     |-- one-flags.txt
+  |     |-- one-completions.txt
+  |     |-- one-two-flags.txt
+```
+
+This is auto-detected - no config needed. ShellFrame looks for
+`commands/<name>/<name>.<ext>` first and only falls back to the flat
+`commands/<name>.<ext>` when that doesn't exist, so existing flat commands
+are completely unaffected. `commands/one/` here is unrelated to
+`commands/one-commands/` (which holds separate executables for `one`'s own
+sub-commands, see above) - a command can use either convention, or neither,
+independently. `one.sh` itself needs no changes: it's still invoked as
+`commands/one/one.sh`, so `$(dirname "${BASH_SOURCE[0]}")` still resolves to
+its own directory as before, just one level deeper.
+
 ### Completion files
 
 If the sub-commands are not external executables or the executables live in some

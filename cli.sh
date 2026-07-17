@@ -85,7 +85,18 @@ done
 
 shift $((OPTIND - 1)) # remove options from positional parameters
 
-command_executables="$(find -L $base_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print)"
+# A command may either live directly in commands/ (flat, e.g. commands/foo.sh)
+# or, to keep commands/ tidy, in its own subdirectory named after it
+# (commands/foo/foo.sh) - NOT to be confused with commands/foo-commands/,
+# which holds separate executables for foo's own sub-commands. The nested
+# form is auto-detected (no config needed): it only kicks in when
+# commands/<name>/<name>.<ext> actually exists, so existing flat setups are
+# completely unaffected. See README.md#nested-command-directories.
+command_executables="$(find -L $base_dir/commands/ -maxdepth 1 -perm -111 -not -type d -print
+find -L $base_dir/commands/ -maxdepth 1 -type d -not -name '*-commands' -print | while read -r dir; do
+    name=$(basename "$dir")
+    find -L "$dir/" -maxdepth 1 -iname "${name}.*" -perm -111 -not -type d -print
+done)"
 
 if [ -n "$help" ]; then
     echo $usage_string
@@ -136,8 +147,20 @@ command=$1
 shift || (echo "ERROR: no command provided!" && _usage)
 
 _find_executable() {
-    find -L $1/ -maxdepth 1 -iname "${2}.*" -perm -111 -not -type d -print |
-        grep "${2}\.[[:alnum:]]\+$"
+    local dir="$1" name="$2"
+    # Nested single-command directory (commands/<name>/<name>.<ext>) takes
+    # precedence over the flat form when both would somehow exist - see the
+    # comment above command_executables.
+    if [ -d "$dir/$name" ]; then
+        local nested_match
+        nested_match=$(find -L "$dir/$name/" -maxdepth 1 -iname "${name}.*" -perm -111 -not -type d -print | grep "${name}\.[[:alnum:]]\+$") || true
+        if [ -n "$nested_match" ]; then
+            echo "$nested_match"
+            return 0
+        fi
+    fi
+    find -L "$dir/" -maxdepth 1 -iname "${name}.*" -perm -111 -not -type d -print |
+        grep "${name}\.[[:alnum:]]\+$"
 }
 
 _find_command() {
@@ -158,17 +181,32 @@ _find_command() {
     sub_command_path="$base_dir/commands"
     sub_command=$command
     idx=0
-    # Only descend into a further sub-commands directory if there's
-    # actually another token left to look up there - otherwise a command
-    # that has BOTH its own executable and a further sub-commands directory
-    # (e.g. commands/automatic-commands/sub-automatic.sh + commands/
-    # automatic-commands/sub-automatic-commands/) would always over-descend
-    # on a bare invocation (e.g. 'automatic sub-automatic'), fail to find
-    # anything for the missing next token, and fall back all the way to the
-    # top-level command - silently skipping the correctly-resolved
-    # intermediate command ('sub-automatic') entirely.
-    while [ "$idx" -lt "${#sub_commands[@]}" ] && [ -d "$sub_command_path/$sub_command-commands" ]; do
-        sub_command_path=$sub_command_path/$sub_command-commands
+    # A command's own sub-commands directory may live nested inside its own
+    # single-command directory ($sub_command_path/$sub_command/$sub_command-
+    # commands, e.g. commands/hello/hello-commands/) or, as before, as a
+    # sibling ($sub_command_path/$sub_command-commands, e.g.
+    # commands/hello-commands/) - the nested form is checked first so a
+    # command using the nested single-command directory convention can keep
+    # its sub-commands together with it instead of spilling a sibling
+    # directory into commands/.
+    #
+    # Only descend when there's actually another token left to look up at
+    # the next level - otherwise a command that has BOTH its own executable
+    # and a further sub-commands directory (e.g. commands/automatic-
+    # commands/sub-automatic.sh + commands/automatic-commands/sub-automatic-
+    # commands/) would always over-descend on a bare invocation (e.g.
+    # 'automatic sub-automatic'), fail to find anything for the missing next
+    # token, and fall back all the way to the top-level command - silently
+    # skipping the correctly-resolved intermediate command ('sub-automatic')
+    # entirely.
+    while [ "$idx" -lt "${#sub_commands[@]}" ]; do
+        if [ -d "$sub_command_path/$sub_command/$sub_command-commands" ]; then
+            sub_command_path="$sub_command_path/$sub_command/$sub_command-commands"
+        elif [ -d "$sub_command_path/$sub_command-commands" ]; then
+            sub_command_path="$sub_command_path/$sub_command-commands"
+        else
+            break
+        fi
         sub_command="${sub_commands[$idx]}"
         [ -n "$verbose" ] && echo "searching for sub command '$sub_command' in: '$sub_command_path'"
         idx=$((idx + 1))

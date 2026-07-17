@@ -148,6 +148,31 @@ assert_output "automatic sub-automatic sub-sub-automatic runs" 0 "^Hello from:.*
 assert_output "dig deeper runs (no runtime -e enforcement)" 0 "" -- dig deeper
 assert_output "dig shallower runs"                    0  ""                     -- dig shallower
 
+# hello (commands/hello/hello.sh) - nested single-command directory + a mix
+# of custom flags (no-input, placeholder hint, enumerated hint, required).
+assert_output "hello <NAME> greets"                   0  "Hello, Chris!"        -- hello Chris
+assert_output "hello -u uppercases (no-input flag)"    0  "HELLO, CHRIS!"        -- hello -u Chris
+assert_output "hello -g overrides greeting (placeholder-hint flag)" 0 "Hey, Chris!" -- hello -g Hey Chris
+assert_output "hello there is handled inline (no executable)" 0 "handled inline" -- hello there
+assert_output "hello world runs (flat executable sub-command)" 0 "Hello, world!" -- hello world
+assert_output "hello world -t morning (enumerated-hint flag)" 0 "Good morning, world!" -- hello world -t morning
+assert_output "hello world -t bogus rejects invalid enum value" 64 "Invalid -t value" -- hello world -t bogus
+assert_output "hello hi runs (nested single-command sub-command)" 0 "Hi!"    -- hello hi
+assert_output "hello hi -c is cheerful (no-input flag, own nesting level)" 0 "Hi!!!" -- hello hi -c
+assert_output "hello all -p sunrise runs (required + enumerated-hint flag)" 0 "Hello, all! \(sunrise\)" -- hello all -p sunrise
+# Regression test for a dispatch bug: a command that has BOTH its own
+# executable and a further sub-commands directory (all.sh + all-commands/)
+# used to over-descend on a bare invocation with no more tokens, fail to
+# find anything, and silently fall back to the TOP-level command (hello.sh)
+# instead of the correctly-resolved intermediate command (all.sh) - masked
+# previously because both scripts' demo output happened to look similar.
+# 'hello all' bare must reach all.sh (and fail its own required -p check),
+# never fall back to hello.sh (which would otherwise treat 'all' as <NAME>
+# and print 'Hello, all!' with exit 0).
+assert_output "hello all (bare) reaches all.sh, not hello.sh's NAME fallback" 64 "missing period" -- hello all
+assert_output "hello all day bypasses all.sh (separate leaf executable)" 0 "Hello, all day!" -- hello all day
+assert_output "hello all night bypasses all.sh (separate leaf executable)" 0 "Hello, all night!" -- hello all night
+
 echo "== completion tests =="
 assert_completion "dig offers -h/-e/-v plus deeper/shallower" -h -e -v deeper shallower -- cli dig ""
 assert_completion "dig -e offers the global ::ENVIRONMENT:: hint" "::ENVIRONMENT::" -- cli dig -e ""
@@ -156,6 +181,11 @@ assert_completion "calculate offers merged -e/-v plus add/subtract" -h -e -v add
 assert_completion "direction offers its own -n plus the global -e/-v" -h -e -v -n left right up down -- cli direction ""
 assert_hint_completion "dig -e shows the ::ENVIRONMENT:: hint without auto-filling it (blank companion entry)" "::ENVIRONMENT::" -- cli dig -e ""
 assert_hint_completion "direction -n shows its own ::VEHICLE_NAME:: hint without auto-filling it" "::VEHICLE_NAME::" -- cli direction -n ""
+assert_completion "hello offers world/hi/all/there plus -h/-u/-g/-e/-v" -h -u -g -e -v world hi all there -- cli hello ""
+assert_completion "hello all offers its own -p (required) plus -h/-e/-v, and day/night" -h -p -e -v day night -- cli hello all ""
+assert_hint_completion "hello -g shows the ::GREETING:: placeholder hint" "::GREETING::" -- cli hello -g ""
+assert_completion "hello world -t offers the enumerated time-of-day values" morning afternoon evening -- cli hello world -t ""
+assert_completion "hello all -p offers the enumerated sunrise/sunset values" sunrise sunset -- cli hello all -p ""
 
 echo
 echo "$pass passed, $fail failed"
