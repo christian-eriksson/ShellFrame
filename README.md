@@ -708,3 +708,32 @@ point instead of `cli.sh` directly, see [bring your own base command](#bring-you
 Such a wrapper can also `export CLI_NAME=your-cli-name` before invoking `cli.sh`,
 so that `cli.sh` uses that name (instead of its own filename) when looking up
 `*-usage.txt` / `*-help.txt`.
+
+## Testing
+
+ShellFrame's own demo commands (in `commands/`) are used as fixtures for
+testing command execution and tab completion. Both scripts under `test/`
+temporarily swap aside any `.base-dir` file so they exercise these demo
+commands regardless of what a consumer's `.base-dir` points at, and restore
+it afterwards.
+
+- `test/run-tests.sh` - automated regression suite, plain Bash, no external
+  test framework. Run it directly:
+
+  ```sh
+  test/run-tests.sh
+  ```
+
+  It exits `0` if every assertion passes, `1` otherwise, and prints a
+  `PASS`/`FAIL` line per assertion.
+
+- `test/manual-env.sh` - sourceable, for interactively trying out commands
+  and real tab completion in your current shell, without installing
+  anything. Nothing persists past the shell session:
+
+  ```sh
+  source test/manual-env.sh
+  cli dig <TAB>
+  cli direction -n car left
+  sf-cleanup   # restores .base-dir and undoes the rest
+  ```
