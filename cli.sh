@@ -158,7 +158,16 @@ _find_command() {
     sub_command_path="$base_dir/commands"
     sub_command=$command
     idx=0
-    while [ -d "$sub_command_path/$sub_command-commands" ]; do
+    # Only descend into a further sub-commands directory if there's
+    # actually another token left to look up there - otherwise a command
+    # that has BOTH its own executable and a further sub-commands directory
+    # (e.g. commands/automatic-commands/sub-automatic.sh + commands/
+    # automatic-commands/sub-automatic-commands/) would always over-descend
+    # on a bare invocation (e.g. 'automatic sub-automatic'), fail to find
+    # anything for the missing next token, and fall back all the way to the
+    # top-level command - silently skipping the correctly-resolved
+    # intermediate command ('sub-automatic') entirely.
+    while [ "$idx" -lt "${#sub_commands[@]}" ] && [ -d "$sub_command_path/$sub_command-commands" ]; do
         sub_command_path=$sub_command_path/$sub_command-commands
         sub_command="${sub_commands[$idx]}"
         [ -n "$verbose" ] && echo "searching for sub command '$sub_command' in: '$sub_command_path'"

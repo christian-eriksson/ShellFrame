@@ -132,8 +132,19 @@ assert_output "automatic -v reads SHELLFRAME_VERBOSE" 0  "verbose: '1'"         
 assert_output "group foo -v reads SHELLFRAME_VERBOSE" 0  "verbose: '1'"         -- group foo -v
 assert_output "group bar runs"                        0  "Hello from"          -- group bar
 assert_output "group sub_group baz runs"              0  "Hello from"          -- group sub_group baz
-assert_output "automatic sub-automatic runs"           0  "Hello from"          -- automatic sub-automatic
-assert_output "automatic sub-automatic sub-sub-automatic runs" 0 "Hello from" -- automatic sub-automatic sub-sub-automatic
+# These two check the ACTUAL resolved script path, not just the "Hello from"
+# text shared by every demo script under commands/automatic-commands/ - a
+# dispatch bug in _find_command's sub-command walk can silently fall back to
+# the wrong (parent) executable while still printing a generic "Hello from"
+# line, which would make a plain substring match pass even though the wrong
+# script ran. See cli.sh's _find_command: a command that has BOTH its own
+# executable and a further sub-commands directory (sub-automatic.sh +
+# sub-automatic-commands/) used to unconditionally descend one more level
+# looking for the next token even when none was left, fail to find anything,
+# and fall back all the way to the top-level command (automatic.sh) instead
+# of the correctly-resolved sub-automatic.sh.
+assert_output "automatic sub-automatic runs"           0  "^Hello from:.*automatic-commands/sub-automatic\.sh"          -- automatic sub-automatic
+assert_output "automatic sub-automatic sub-sub-automatic runs" 0 "^Hello from:.*sub-automatic-commands/sub-sub-automatic\.sh" -- automatic sub-automatic sub-sub-automatic
 assert_output "dig deeper runs (no runtime -e enforcement)" 0 "" -- dig deeper
 assert_output "dig shallower runs"                    0  ""                     -- dig shallower
 
