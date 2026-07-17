@@ -169,6 +169,14 @@ _find_command() {
     if [ -z "$command_executable" ]; then
         [ -n "$verbose" ] && echo "WARNING: no command executable found for sub command '$sub_command' at '$sub_command_path'!" || true
         command_executable=$(_find_executable "$base_dir/commands" "$command") || true
+        # Falling back to the base command itself (rather than a sub-command
+        # found via the loop above) means none of $sub_commands were
+        # actually consumed as a path to a sub-command executable - e.g. a
+        # command whose own script handles some positional values itself
+        # (see commands/hello/hello-completions.txt's 'there'). Reset idx so
+        # the "unset arguments" loop below doesn't strip arguments that were
+        # never actually resolved to a sub-command directory.
+        [ -n "$command_executable" ] && idx=0
     fi
     if [ -z "$command_executable" ]; then
         if [ "$idx" -gt "0" ]; then
