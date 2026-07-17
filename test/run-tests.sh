@@ -42,12 +42,21 @@ assert_output() {
     output=$(cli "$@" 2>&1)
     actual_exit=$?
     if [ "$actual_exit" != "$expected_exit" ]; then
-        echo "  FAIL: $desc (exit $actual_exit, expected $expected_exit) - output: $output"
+        echo "  FAIL: $desc"
+        echo "        command:       cli $*"
+        echo "        expected exit: $expected_exit"
+        echo "        actual exit:   $actual_exit"
+        echo "        actual output: $output"
+        echo
         fail=$((fail + 1))
         return
     fi
     if [ -n "$pattern" ] && ! grep -qE -- "$pattern" <<<"$output"; then
-        echo "  FAIL: $desc (output didn't match /$pattern/) - output: $output"
+        echo "  FAIL: $desc"
+        echo "        command: cli $*"
+        echo "        expected pattern to match output: \`$pattern\`"
+        echo "        actual output: $output"
+        echo
         fail=$((fail + 1))
         return
     fi
@@ -74,7 +83,10 @@ assert_completion() {
     actual=$(printf '%s\n' "${COMPREPLY[@]}" | sed 's/[[:space:]]*$//' | grep -v '^$' | sort -u)
     want=$(printf '%s\n' "${expected[@]}" | sed 's/[[:space:]]*$//' | grep -v '^$' | sort -u)
     if [ "$actual" != "$want" ]; then
-        echo "  FAIL: $desc (got: [${COMPREPLY[*]}], want: [${expected[*]}])"
+        echo "  FAIL: $desc"
+        echo "        expected words: ${expected[*]}"
+        echo "        actual words:   ${COMPREPLY[*]}"
+        echo
         fail=$((fail + 1))
         return
     fi
@@ -97,7 +109,10 @@ assert_hint_completion() {
     COMPREPLY=()
     _cli_completions
     if [ "${#COMPREPLY[@]}" -ne 2 ] || [ "${COMPREPLY[0]}" != "$expected_hint" ] || [ -n "${COMPREPLY[1]}" ]; then
-        echo "  FAIL: $desc (got: [${COMPREPLY[*]}], want exactly 2 entries: [\"$expected_hint\", \"\"])"
+        echo "  FAIL: $desc"
+        echo "        expected exactly 2 entries: [\"$expected_hint\", \"\"]"
+        echo "        actual entries:             [${COMPREPLY[*]}]"
+        echo
         fail=$((fail + 1))
         return
     fi
