@@ -242,12 +242,12 @@ $global_v_flag"
 
     local has_defined_completions=false
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
+        # Nested single-command directories (commands/<name>/<name>.<ext>),
+        # not to be confused with a "*-commands" sub-command dir - see
+        # cli.sh's _find_executable comment.
         local command_completions=$(
             find -L "$completions_directory/" -maxdepth 1 \
                 -perm -111 -not -type d -execdir sh -c 'f=$(basename $0); printf "%s\n" "${f%.*}"' {} ';'
-            # Nested single-command directories (commands/<name>/<name>.<ext>),
-            # not to be confused with a "*-commands" sub-command dir - see
-            # cli.sh's _find_executable comment.
             find -L "$completions_directory/" -maxdepth 1 -type d -not -name '*-commands' -print |
                 while read -r nested_dir; do
                     nested_name=$(basename "$nested_dir")
