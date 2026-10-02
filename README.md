@@ -482,7 +482,27 @@ cli one -t {tab}{tab}
 > to insert as the user won't want to go backstep and delete it before replacing
 > it with an actual value.
 
+Control hints use the reserved `@complete:` prefix, separate from `::NAME::`
+placeholders. While regular hints provide the user with guidance of what to write
+as input, like a name, number or free-text string, a control hint tells ShellFrame
+what type of completion to provide, for example file paths. For a flag that
+expects a file or directory path, use the control hint `@complete:path`:
 
+```txt
+-t* @complete:path
+```
+
+While `-t` is waiting for its value, Tab completes files and directories rather
+than suggesting flags or inserting the hint. This works with an empty prefix,
+`.`, `./`, `/`, and partially typed paths. Directory matches allow you to
+continue completing deeper into the path. Once a value is followed by a space and
+it can no longer complete to a file or directory, the usual flag and command
+completions resume.
+
+This works in both `bash` and `zsh`; `zsh` uses its native file completer for
+this hint. The control hint needs no shell quoting. All `::NAME::` hints,
+including `::PATH::`, remain ordinary placeholders; future control hints use
+the `@complete:` namespace instead.
 
 If a command has no completions file and no sub-commands directory, it is
 expected to take a free-form positional argument instead (e.g.
@@ -499,7 +519,7 @@ commands/
 
 ```txt
 # put-flags.txt
--p ::PATH::
+-p @complete:path
 -q
 ```
 
@@ -509,11 +529,12 @@ cli put {tab}{tab}
 ```
 
 To mark a flag as required, append a `*` directly after the flag name (before
-the hint, if any). Required flags must all be provided before filesystem paths
-are offered, so paths aren't mixed in with flags you still need to supply:
+the hint, if any). Required flags must all be provided before positional
+filesystem paths are offered, so paths aren't mixed in with flags you still
+need to supply. A flag with `@complete:path` still completes its value immediately:
 
 ```txt
--p* ::PATH::
+-p* @complete:path
 -q
 ```
 

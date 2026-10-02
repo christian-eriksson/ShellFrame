@@ -187,6 +187,109 @@ assert_hint_completion "hello -g shows the ::GREETING:: placeholder hint" "::GRE
 assert_completion "hello world -t offers the enumerated time-of-day values" morning afternoon evening -- cli hello world -t ""
 assert_completion "hello all -p offers the enumerated sunrise/sunset values" sunrise sunset -- cli hello all -p ""
 
+echo "== filesystem flag completion tests =="
+path_fixture="$tmp_dir/path-fixture"
+path_work="$tmp_dir/path-work"
+mkdir -p "$path_fixture/commands" "$path_work/temp/nested" "$path_work/folder with spaces"
+cp "$root/cli.sh" "$path_fixture/cli.sh"
+ln -s "$path_fixture/cli.sh" "$tmp_dir/path-cli"
+printf '%s\n' '-e local|test|prod' '-v' > "$path_fixture/cli-flags.txt"
+printf '%s\n' '-t* @complete:path' '-p* ::PATH::' '-s envelope|ingestion|enqueued' '-h' > "$path_fixture/commands/history-download-flags.txt"
+touch "$path_work/foo.xml" "$path_work/.hidden"
+cd "$path_work"
+
+for prefix in "" . ./ / ./temp/; do
+    mapfile -t expected_paths < <(compgen -f -- "$prefix")
+    assert_completion "path flag completes filesystem prefix '$prefix'" "${expected_paths[@]}" -- path-cli history download -e local -t "$prefix"
+done
+assert_completion "path flag keeps a spaced name in one candidate" "folder with spaces" -- path-cli history download -e local -t fold
+assert_completion "path flag filters filename prefixes" foo.xml -- path-cli history download -e local -t foo
+assert_completion "path flag has no candidates for a missing prefix" -- path-cli history download -e local -t nonexistent
+for target in foo ./temp /tmp "folder with spaces"; do
+    assert_completion "flags resume after path value '$target'" -p -s -h -v -- path-cli history download -e local -t "$target" ""
+done
+assert_hint_completion "::PATH:: remains a placeholder after a path value" "::PATH::" -- path-cli history download -e local -t ./temp -p ""
+assert_completion "enum flag still works after a path value" envelope ingestion enqueued -- path-cli history download -e local -t ./temp -s ""
+
+if command -v zsh >/dev/null 2>&1; then
+    if zsh_output=$(PS1= PS2= RPS1= RPS2= zsh -f -i -s -- "$root" 2>&1 <<'ZSH'
+autoload -Uz compinit bashcompinit
+compinit -D -i
+bashcompinit
+unsetopt interactivecomments
+CLI_NAME=path-cli source "$1/cli-completion.bash"
+
+for command_prefix in "" hello; do
+    COMP_WORDS=(cli)
+    expected=hello
+    if [[ -n "$command_prefix" ]]; then
+        COMP_WORDS+=("$command_prefix")
+        expected=world
+    fi
+    COMP_WORDS+=("")
+    words=("${COMP_WORDS[@]}")
+    CURRENT=${#words[@]}
+    actual=$(compgen -F _cli_completions -- "" 2>&1)
+    if [[ "$actual" == *"parse error"* ]] || ! printf '%s\n' "$actual" | grep -qx "$expected"; then
+        print -r -- "Expected '$expected' from interactive command discovery, got '$actual'"
+        exit 1
+    fi
+done
+
+_files() { print -r -- paths; }
+_bash_complete() { print -r -- flags; }
+
+for path_prefix in "" . ./ / ./temp/n 'folder\ with\ spaces/n'; do
+    words=(path-cli history download -e local -t "$path_prefix")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != paths ]]; then
+        print -r -- "Expected native paths for '$path_prefix', got '$actual'"
+        exit 1
+    fi
+done
+
+for path_value in foo ./temp /tmp 'folder\ with\ spaces'; do
+    words=(path-cli history download -e local -t "$path_value" "")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != flags ]]; then
+        print -r -- "Expected flags after '$path_value', got '$actual'"
+        exit 1
+    fi
+done
+
+for flag in -p -s; do
+    words=(path-cli history download -e local -t ./temp "$flag" "")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != flags ]]; then
+        print -r -- "Expected existing completion for '$flag', got '$actual'"
+        exit 1
+    fi
+done
+COMP_WORDS=(path-cli history download -e local -t ./temp -p "")
+words=("${COMP_WORDS[@]}")
+CURRENT=${#words[@]}
+actual=$(compgen -F _cli_completions -- "")
+if [[ "$actual" != "::PATH::" ]]; then
+    print -r -- "Expected the literal ::PATH:: placeholder, got '$actual'"
+    exit 1
+fi
+ZSH
+    ); then
+        echo "  PASS: interactive zsh command discovery and native path dispatch"
+        pass=$((pass + 1))
+    else
+        echo "  FAIL: interactive zsh command discovery and native path dispatch"
+        echo "        $zsh_output"
+        fail=$((fail + 1))
+    fi
+else
+    echo "  SKIP: interactive zsh completion (zsh is not installed)"
+fi
+cd "$root"
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

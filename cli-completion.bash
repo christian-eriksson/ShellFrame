@@ -161,6 +161,19 @@ $global_v_flag"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
+        if [ "$flag_argument_hint" = "@complete:path" ]; then
+            if [ -n "$ZSH_VERSION" ]; then
+                COMPREPLY=("$flag_argument_hint")
+                return 0
+            fi
+            COMPREPLY=()
+            local path_completion
+            while IFS= read -r path_completion; do
+                COMPREPLY+=("$path_completion")
+            done < <(compgen -f -- "$completion_hint")
+            return 0
+        fi
+
         # A hint that is one or more pipe-separated choices with no spaces
         # (e.g. 'foo|bar|baz'), or a single bare value (e.g. 'foo'), is a real
         # enum: offer the values as real, tab-completable/cycleable
@@ -296,4 +309,17 @@ $global_v_flag"
 # instead of treating every match as a "finished" word - without this,
 # tab-completing into a directory ends the completion instead of letting you
 # keep completing deeper into the path.
-complete -F _cli_completions -o filenames $CLI_NAME
+if [ -n "$ZSH_VERSION" ]; then
+    _cli_zsh_completions() {
+        local -a COMP_WORDS
+        COMP_WORDS=("${words[@]}")
+        if [ "$(compgen -F _cli_completions -- "${words[CURRENT]}")" = "@complete:path" ]; then
+            _files
+        else
+            _bash_complete -F _cli_completions -o filenames
+        fi
+    }
+    compdef _cli_zsh_completions "$CLI_NAME"
+else
+    complete -F _cli_completions -o filenames "$CLI_NAME"
+fi
