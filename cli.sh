@@ -40,13 +40,22 @@ _usage() {
 _raw_args=("$@")
 set --
 _skip_next=false
+_literal_args=false
 for _arg in "${_raw_args[@]}"; do
+    if $_literal_args; then
+        set -- "$@" "$_arg"
+        continue
+    fi
     if $_skip_next; then
         environment="$_arg"
         _skip_next=false
         continue
     fi
     case "$_arg" in
+    --)
+        _literal_args=true
+        set -- "$@" "$_arg"
+        ;;
     -e)
         _skip_next=true
         ;;
@@ -65,7 +74,7 @@ if $_skip_next; then
     echo "Option '-e' requires an argument." >&2
     _usage
 fi
-unset _raw_args _skip_next _arg
+unset _raw_args _skip_next _literal_args _arg
 
 while getopts ":h" opt; do
     case $opt in
@@ -257,6 +266,7 @@ _run_command() {
     arguments=("$@")
 
     for arg in "${arguments[@]}"; do
+        [[ "$arg" = -- ]] && break
         if [ "$arg" == "-h" ]; then
             help=$arg
         fi

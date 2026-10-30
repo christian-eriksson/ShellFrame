@@ -72,6 +72,7 @@ _cli_completions() {
     local commands_provided=()
     local flags_to_current_command=()
     local flag_argument_hint=""
+    local end_of_options=false
     # -e and -v are both usable at any command depth and only need to be
     # provided once for the whole invocation, so track them separately -
     # unlike flags_to_current_command, these must NOT reset when a new
@@ -79,6 +80,11 @@ _cli_completions() {
     local e_flag_provided=false
     local v_flag_provided=false
     for word in "${input_array[@]}"; do
+        if [[ "$word" = -- ]]; then
+            end_of_options=true
+            flag_argument_hint=""
+            break
+        fi
         [ -z "$word" ] && continue
         if [[ "$word" = -* ]]; then
             flags_to_current_command+=("$word")
@@ -238,7 +244,7 @@ $global_v_flag"
         return 0
     fi
 
-    if [[ "$completion_hint" = -* ]]; then
+    if [[ "$end_of_options" = false && "$completion_hint" = -* ]]; then
         COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
         return
     fi
@@ -288,8 +294,9 @@ $global_v_flag"
         [ "$required_flag_provided" = false ] && missing_required_flags+=("$required_flag")
     done
 
+    [[ "$end_of_options" = true ]] && completions=""
     local matches=($(compgen -W "$completions" -- "$completion_hint"))
-    if [ "$has_defined_completions" = false ] && [ "${#missing_required_flags[@]}" -eq 0 ]; then
+    if [[ "$has_defined_completions" = false && ( "${#missing_required_flags[@]}" -eq 0 || "$end_of_options" = true ) ]]; then
         # There is no sub-commands directory or completions file defined for
         # this command - it expects a free-form positional argument (e.g.
         # <path-to-file>). Merge in real filesystem paths alongside any still-

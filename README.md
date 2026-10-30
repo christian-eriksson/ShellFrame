@@ -566,6 +566,24 @@ your cli completion, but bing your own `cli.sh` script.
 
 ## Global Configuration
 
+### Literal arguments
+
+Place `--` after the selected command and its options to stop option and
+subcommand interpretation. ShellFrame preserves the marker and all following
+arguments for the command, including strings such as `-e`, `-v` and `-h`:
+
+```sh
+cli one -- -v "hello there"
+```
+
+The command's own argument parser must also honor `--`. ShellFrame does not
+join or split the trailing arguments. Quoting preserves spaces within an
+argument; it does not distinguish an option from a literal value at execution
+time, because the shell removes the quotes before invoking the script.
+
+Tab completion stops suggesting flags and subcommands after `--`. Commands
+with the default positional file completion still offer paths.
+
 If you use the provided `cli.sh`, you can configure the cli with different
 environments by adding one or multiple `.env.<ENVIRONMENT>` files in the root
 directory of this repo. The commands will all be able to read the variables set
@@ -582,8 +600,8 @@ same reason - both are read once from the base command's own flags file
 the top level.
 
 **`-e` and `-v` are reserved and cannot be redefined by a command.** Both
-are stripped out of the argument list before your command ever runs (see
-above) and are never passed through as a literal flag - a command's own
+are stripped out of the argument list before your command ever runs (unless
+they follow `--`) and are not passed through as flags - a command's own
 `getopts`/flag parsing will simply never see a `-e` or `-v` the user typed,
 no matter what optstring it declares. Giving your own command's `-e`/`-v` a
 different meaning (e.g. a required `-e <NAME>` for something other than an

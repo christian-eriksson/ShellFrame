@@ -187,6 +187,53 @@ assert_hint_completion "hello -g shows the ::GREETING:: placeholder hint" "::GRE
 assert_completion "hello world -t offers the enumerated time-of-day values" morning afternoon evening -- cli hello world -t ""
 assert_completion "hello all -p offers the enumerated sunrise/sunset values" sunrise sunset -- cli hello all -p ""
 
+echo "== end-of-options tests =="
+argument_fixture="$tmp_dir/argument-fixture"
+mkdir -p "$argument_fixture/commands/probe-commands"
+cp "$root/cli.sh" "$argument_fixture/cli.sh"
+ln -s "$argument_fixture/cli.sh" "$tmp_dir/arguments-cli"
+printf '%s\n' '-e local|test|prod' '-v' > "$argument_fixture/cli-flags.txt"
+printf '%s\n' '-b' '-h' > "$argument_fixture/commands/probe-flags.txt"
+printf '%s\n' child > "$argument_fixture/commands/probe-completions.txt"
+cat > "$argument_fixture/commands/probe.sh" <<'PROBE'
+#!/bin/bash
+printf 'handler=%s\n' "$(basename "$0")"
+printf 'verbose=%s\n' "${SHELLFRAME_VERBOSE:-}"
+printf '<%s>\n' "$@"
+PROBE
+cp "$argument_fixture/commands/probe.sh" "$argument_fixture/commands/probe-commands/child.sh"
+chmod +x "$argument_fixture/commands/probe.sh" "$argument_fixture/commands/probe-commands/child.sh"
+printf '%s\n' 'PROBE HELP' > "$argument_fixture/commands/probe-help.txt"
+
+assert_arguments() {
+    local description="$1" expected="$2"
+    shift 2
+    local actual result
+    actual=$(SHELLFRAME_VERBOSE= SHELLFRAME_ENVIRONMENT= arguments-cli "$@" 2>&1)
+    result=$?
+    if [[ "$result" -eq 0 && "$actual" = "$expected" ]]; then
+        echo "  PASS: $description"
+        pass=$((pass + 1))
+    else
+        echo "  FAIL: $description"
+        printf '        expected: %s\n        actual (%s): %s\n' "$expected" "$result" "$actual"
+        fail=$((fail + 1))
+    fi
+}
+
+assert_arguments "literal flags survive the end-of-options marker" \
+    $'handler=probe.sh\nverbose=\n<-->\n<-v>\n<-eprod>\n<-e>\n<missing>\n<-h>' \
+    probe -- -v -eprod -e missing -h
+assert_arguments "literal text does not select a child command" \
+    $'handler=probe.sh\nverbose=\n<-->\n<child>' probe -- child
+assert_arguments "nested commands preserve empty and multiline literal arguments" \
+    $'handler=child.sh\nverbose=\n<-->\n<>\n<hello there>\n<first\nsecond>\n<*>' \
+    probe child -- '' 'hello there' $'first\nsecond' '*'
+assert_completion "no flags or subcommands after end-of-options" \
+    -- arguments-cli probe -- ""
+assert_completion "literal option prefix does not complete flags" \
+    -- arguments-cli probe -- -
+
 echo "== filesystem flag completion tests =="
 path_fixture="$tmp_dir/path-fixture"
 path_work="$tmp_dir/path-work"
@@ -210,6 +257,7 @@ for target in foo ./temp /tmp "folder with spaces"; do
 done
 assert_hint_completion "::PATH:: remains a placeholder after a path value" "::PATH::" -- path-cli history download -e local -t ./temp -p ""
 assert_completion "enum flag still works after a path value" envelope ingestion enqueued -- path-cli history download -e local -t ./temp -s ""
+assert_completion "positional paths still complete after end-of-options" foo.xml -- path-cli history download -- foo
 
 if command -v zsh >/dev/null 2>&1; then
     if zsh_output=$(PS1= PS2= RPS1= RPS2= zsh -f -i -s -- "$root" 2>&1 <<'ZSH'
