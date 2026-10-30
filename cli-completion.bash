@@ -64,10 +64,67 @@ _search_completion_file() {
     echo "${file_path}"
 }
 
+_completion_text_context() {
+    local prefix="$1" offset=0 character next_character
+    completion_quote=""
+    completion_text=""
+    while [[ "$offset" -lt "${#prefix}" ]]; do
+        character="${prefix:$offset:1}"
+        next_character="${prefix:$((offset + 1)):1}"
+        case "$completion_quote" in
+        "'")
+            if [[ "$character" = "'" ]]; then
+                completion_quote=""
+            else
+                completion_text+="$character"
+            fi
+            ;;
+        '"')
+            if [[ "$character" = '"' ]]; then
+                completion_quote=""
+            elif [[ "$character" = \\ && ( "$next_character" = '"' || "$next_character" = \\ || "$next_character" = '$' || "$next_character" = '`' || "$next_character" = $'\n' ) ]]; then
+                [[ "$next_character" != $'\n' ]] && completion_text+="$next_character"
+                offset=$((offset + 1))
+            else
+                completion_text+="$character"
+            fi
+            ;;
+        *)
+            case "$character" in
+            "'"|'"') completion_quote="$character" ;;
+            \\)
+                if [[ -n "$next_character" ]]; then
+                    [[ "$next_character" != $'\n' ]] && completion_text+="$next_character"
+                    offset=$((offset + 1))
+                else
+                    completion_text+="$character"
+                fi
+                ;;
+            [[:space:]]|'|'|';'|'&'|'('|')'|'<'|'>') completion_text="" ;;
+            *) completion_text+="$character" ;;
+            esac
+            ;;
+        esac
+        offset=$((offset + 1))
+    done
+}
+
 _cli_completions() {
     local current_word="${COMP_CWORD:-$((${#COMP_WORDS[@]} - 1))}"
     local input_array=("${COMP_WORDS[@]:0:$current_word}")
     local completion_hint="${COMP_WORDS[@]:$current_word:1}"
+    local completion_quote="" completion_text="" path_hint="$completion_hint"
+    if [[ -n "${_cli_line_prefix+x}" ]]; then
+        _completion_text_context "$_cli_line_prefix"
+        path_hint="$completion_text"
+    elif [[ -z "${ZSH_VERSION:-}" && -n "${COMP_LINE+x}" ]]; then
+        local LC_ALL=C
+        _completion_text_context "${COMP_LINE:0:${COMP_POINT:-${#COMP_LINE}}}"
+        path_hint="$completion_text"
+    fi
+    if [[ -n "${_cli_quote_context:-}" ]]; then
+        completion_quote="$_cli_quote_context"
+    fi
 
     local commands_provided=()
     local flags_to_current_command=()
@@ -174,6 +231,7 @@ $global_v_flag"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
+        completion_hint="$path_hint"
         if [[ "$flag_argument_hint" = "@complete:text" ]]; then
             COMPREPLY=()
             return 0
@@ -187,7 +245,7 @@ $global_v_flag"
             local path_completion
             while IFS= read -r path_completion; do
                 COMPREPLY+=("$path_completion")
-            done < <(compgen -f -- "$completion_hint")
+            done < <(compgen -f -- "$path_hint")
             return 0
         fi
 
@@ -249,13 +307,15 @@ $global_v_flag"
             fi
         elif [ "$is_placeholder" = true ]; then
             COMPREPLY=("$flag_argument_hint")
-        else
+        elif [[ -z "$completion_quote" ]]; then
             COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
+        else
+            COMPREPLY=()
         fi
         return 0
     fi
 
-    if [[ "$end_of_options" = false && "$completion_hint" = -* ]]; then
+    if [[ "$end_of_options" = false && -z "$completion_quote" && "$completion_hint" = -* ]]; then
         COMPREPLY=($(compgen -W "$completions" -- "$completion_hint"))
         return
     fi
@@ -307,7 +367,9 @@ $global_v_flag"
         [ "$required_flag_provided" = false ] && missing_required_flags+=("$required_flag")
     done
 
-    [[ "$end_of_options" = true ]] && completions=""
+    if [[ "$end_of_options" = true || -n "$completion_quote" ]]; then
+        completions=""
+    fi
     local matches=($(compgen -W "$completions" -- "$completion_hint"))
     if [[ "$has_defined_completions" = false && ( "${#missing_required_flags[@]}" -eq 0 || "$end_of_options" = true ) ]]; then
         # There is no sub-commands directory or completions file defined for
@@ -318,7 +380,14 @@ $global_v_flag"
         # remaining match instead of listing paths). Only do this once all
         # required flags have been provided, so files aren't mixed in with
         # flags the user still needs to supply.
-        matches+=($(compgen -f -- "$completion_hint"))
+        if [[ -n "${ZSH_VERSION:-}" && -n "$completion_quote" ]]; then
+            COMPREPLY=("@complete:path")
+            return 0
+        fi
+        local positional_path
+        while IFS= read -r positional_path; do
+            matches+=("$positional_path")
+        done < <(compgen -f -- "$path_hint")
     fi
 
     COMPREPLY=("${matches[@]}")
@@ -333,9 +402,18 @@ if [ -n "$ZSH_VERSION" ]; then
     _cli_zsh_completions() {
         local -a COMP_WORDS
         COMP_WORDS=("${words[@]}")
-        if [ "$(compgen -F _cli_completions -- "${words[CURRENT]}")" = "@complete:path" ]; then
+        local COMP_CWORD=$((CURRENT - 1))
+        local _cli_quote_context=""
+        if [[ -n "${compstate+x}" ]]; then
+            _cli_quote_context="${compstate[quote]:-}"
+        fi
+        if [[ -n "${BUFFER+x}" ]]; then
+            local _cli_line_prefix="${BUFFER:0:$CURSOR}"
+        fi
+        local completion_result=$(compgen -F _cli_completions -- "${words[CURRENT]}")
+        if [[ "$completion_result" = "@complete:path" ]]; then
             _files
-        else
+        elif [[ -n "$completion_result" ]]; then
             _bash_complete -F _cli_completions -o filenames
         fi
     }

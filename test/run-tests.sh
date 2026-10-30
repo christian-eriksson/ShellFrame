@@ -307,6 +307,51 @@ assert_hint_completion "::PATH:: remains a placeholder after a path value" "::PA
 assert_completion "enum flag still works after a path value" envelope ingestion enqueued -- path-cli history download -e local -t ./temp -s ""
 assert_completion "positional paths still complete after end-of-options" foo.xml -- path-cli history download -- foo
 
+echo "== quote-aware completion tests =="
+assert_line_completion() {
+    local description="$1" COMP_LINE="$2" COMP_POINT="$3"
+    shift 3
+    assert_completion "$description" "$@"
+}
+quote_line='cli "'
+assert_line_completion "opening double quote suppresses subcommands" "$quote_line" "${#quote_line}" -- cli ""
+quote_line="cli '"
+assert_line_completion "opening single quote suppresses subcommands" "$quote_line" "${#quote_line}" -- cli ""
+quote_line='cli "he'
+assert_line_completion "quoted subcommand prefix offers no suggestions" "$quote_line" "${#quote_line}" -- cli he
+quote_line='cli hello "-'
+assert_line_completion "quoted option prefix offers no flags" "$quote_line" "${#quote_line}" -- cli hello -
+quote_line='cli hello -u "'
+assert_line_completion "quoted text after a boolean offers no suggestions" "$quote_line" "${#quote_line}" -- cli hello -u '"'
+for quote in '"' "'"; do
+    quote_line="arguments-cli -e $quote"
+    assert_line_completion "quoted environment value offers choices with $quote" "$quote_line" "${#quote_line}" local test prod -- arguments-cli -e "$quote"
+    quote_line="arguments-cli probe -e ${quote}pro"
+    assert_line_completion "quoted nested environment prefix filters choices with $quote" "$quote_line" "${#quote_line}" prod -- arguments-cli probe -e "${quote}pro"
+    quote_line="arguments-cli probe child -a $quote"
+    assert_line_completion "quoted free-text value still offers no suggestions with $quote" "$quote_line" "${#quote_line}" -- arguments-cli probe child -a "$quote"
+done
+quote_line='cli -e "'
+assert_line_completion "quoted option placeholder retains its hint" "$quote_line" "${#quote_line}" '::ENVIRONMENT::' -- cli -e '"'
+quote_line='cli hello world -t "mor'
+assert_line_completion "quoted enum prefix completes its option value" "$quote_line" "${#quote_line}" morning -- cli hello world -t '"mor'
+quote_line='cli hello world -t "morning"'
+assert_line_completion "enum completion uses the prefix up to the cursor" "$quote_line" 26 morning -- cli hello world -t '"morning"'
+quote_line='cli hello -g "say \"hello'
+assert_line_completion "escaped double quote does not close quoted text" "$quote_line" "${#quote_line}" -- cli hello -g 'say "hello'
+quote_line='cli hello -g \" -'
+assert_line_completion "escaped quote outside quotes does not suppress flags" "$quote_line" "${#quote_line}" -h -u -e -v -- cli hello -g '\"' -
+quote_line='cli hello -g "hello there" '
+assert_line_completion "completion resumes after a complete quoted value" "$quote_line" "${#quote_line}" -h -u -e -v world hi all there -- cli hello -g 'hello there' ""
+quote_line='path-cli history download -t "fold'
+assert_line_completion "double-quoted path completes names with spaces" "$quote_line" "${#quote_line}" 'folder with spaces' -- path-cli history download -t '"fold'
+quote_line="path-cli history download -t 'fold"
+assert_line_completion "single-quoted path completes names with spaces" "$quote_line" "${#quote_line}" 'folder with spaces' -- path-cli history download -t "'fold"
+quote_line='path-cli history download -t "folder with spaces/'
+assert_line_completion "repeated completion of a quoted path preserves its prefix" "$quote_line" "${#quote_line}" -- path-cli history download -t '"folder with spaces/'
+quote_line='path-cli history download -- "fold'
+assert_line_completion "quoted positional paths complete after --" "$quote_line" "${#quote_line}" 'folder with spaces' -- path-cli history download -- '"fold'
+
 if command -v zsh >/dev/null 2>&1; then
     if zsh_output=$(PS1= PS2= RPS1= RPS2= zsh -f -i -s -- "$root" 2>&1 <<'ZSH'
 autoload -Uz compinit bashcompinit
@@ -390,6 +435,78 @@ if [[ "$actual" != "::PATH::" ]]; then
     print -r -- "Expected the literal ::PATH:: placeholder, got '$actual'"
     exit 1
 fi
+for quote in '"' "'"; do
+    BUFFER="cli $quote"
+    CURSOR=${#BUFFER}
+    words=(cli "$quote")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ -n "$actual" ]]; then
+        print -r -- "Expected no suggestions inside $quote, got '$actual'"
+        exit 1
+    fi
+    BUFFER="path-cli history download -t ${quote}fold"
+    CURSOR=${#BUFFER}
+    words=(path-cli history download -t "${quote}fold")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != paths ]]; then
+        print -r -- "Expected native quoted paths, got '$actual'"
+        exit 1
+    fi
+    for value_prefix in '' pro; do
+        BUFFER="arguments-cli probe -e ${quote}${value_prefix}"
+        CURSOR=${#BUFFER}
+        words=(arguments-cli probe -e "${quote}${value_prefix}")
+        CURRENT=${#words[@]}
+        actual=$(_cli_zsh_completions)
+        if [[ "$actual" != flags ]]; then
+            print -r -- "Expected quoted environment completion, got '$actual'"
+            exit 1
+        fi
+        COMP_WORDS=("${words[@]}")
+        COMP_CWORD=$((CURRENT - 1))
+        _cli_line_prefix="${BUFFER:0:$CURSOR}"
+        actual=$(compgen -F _cli_completions -- "${words[CURRENT]}")
+        unset _cli_line_prefix
+        expected=$'local\ntest\nprod'
+        if [[ "$actual" != "$expected" ]]; then
+            print -r -- "Expected environment candidates for native matching '$expected', got '$actual'"
+            exit 1
+        fi
+    done
+done
+typeset -A compstate
+for quote in '"' "'"; do
+    compstate[quote]="$quote"
+    BUFFER='cli '
+    CURSOR=${#BUFFER}
+    words=(cli "$quote")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ -n "$actual" ]]; then
+        print -r -- "Expected native quote state to suppress suggestions, got '$actual'"
+        exit 1
+    fi
+    BUFFER='arguments-cli probe -e pro'
+    CURSOR=${#BUFFER}
+    words=(arguments-cli probe -e "${quote}pro")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != flags ]]; then
+        print -r -- "Expected option values with native quote state, got '$actual'"
+        exit 1
+    fi
+    BUFFER='path-cli history download -t fold'
+    CURSOR=${#BUFFER}
+    words=(path-cli history download -t "${quote}fold")
+    CURRENT=${#words[@]}
+    actual=$(_cli_zsh_completions)
+    if [[ "$actual" != paths ]]; then
+        print -r -- "Expected paths with native quote state, got '$actual'"
+        exit 1
+    fi
+done
 ZSH
     ); then
         echo "  PASS: interactive zsh command discovery and native path dispatch"

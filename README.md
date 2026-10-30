@@ -574,6 +574,27 @@ text. These hints control completion, not the command's argument parser:
 the command script still parses its options and handles positional arguments.
 Commands without text metadata keep their current completion behavior.
 
+### Quoted input
+
+While the cursor is inside single or double quotes, Tab offers no flags or
+subcommands. If an option is expecting a value, its configured enum, path or
+placeholder completion still applies. For example, `cli -e "` offers the
+configured environment values, while `cli "` offers no subcommands. Matching
+uses the value without its syntactic quotes. `@complete:text` values still
+offer no suggestions. Completion resumes outside quoted input; escaped quotes
+do not accidentally open or close it.
+
+Paths also complete inside quotes for a command's default positional path
+input. Bash preserves filename candidates containing spaces; Zsh uses its
+native path completer.
+The quote check uses the command line up to the cursor, not the text after it.
+It does not evaluate that text or expand shell expressions itself.
+
+This changes completion only. At execution time `cli "subcmd"` and
+`cli subcmd` have identical arguments, as do `cli "-v"` and `cli -v`.
+Use the [literal argument marker](#literal-arguments) to distinguish data from
+options or subcommands at runtime.
+
 If a command has no completions file and no sub-commands directory, it is
 expected to take a free-form positional argument instead (e.g.
 `<path-to-file>`). Real filesystem paths are then offered as completions,
