@@ -31,6 +31,37 @@ _usage() {
     exit 64
 }
 
+_flags_file() {
+    local metadata_path="$base_dir/commands/" command_word
+    if [[ $# -eq 0 ]]; then
+        printf '%s\n' "$base_dir/$script_name-flags.txt"
+        return
+    fi
+    for command_word in "$@"; do
+        if [[ -d "$metadata_path$command_word/$command_word-commands" ]]; then
+            metadata_path="$metadata_path$command_word/$command_word-commands/"
+        elif [[ -d "$metadata_path$command_word-commands" ]]; then
+            metadata_path="$metadata_path$command_word-commands/"
+        elif [[ -d "$metadata_path$command_word" ]]; then
+            metadata_path="$metadata_path$command_word/$command_word-"
+        else
+            metadata_path="$metadata_path$command_word-"
+        fi
+    done
+    printf '%s\n' "${metadata_path%commands/}flags.txt"
+}
+
+_takes_value() {
+    local flags_file="$1" requested_flag="$2" flag_name hint
+    [[ -f "$flags_file" ]] || return 1
+    while read -r flag_name hint; do
+        if [[ "${flag_name%\*}" = "$requested_flag" && -n "$hint" ]]; then
+            return 0
+        fi
+    done < "$flags_file"
+    return 1
+}
+
 # -e/<ENVIRONMENT> and -v are CLI-wide and, unlike -h, allowed anywhere in
 # the argument list - not just before the command name - so they can be
 # combined freely with command-specific flags, e.g. 'cli command -e dev -v'
@@ -41,9 +72,18 @@ _raw_args=("$@")
 set --
 _skip_next=false
 _literal_args=false
+_value_next=false
+_command_words=()
+_command_options=false
+_command_help=false
 for _arg in "${_raw_args[@]}"; do
     if $_literal_args; then
         set -- "$@" "$_arg"
+        continue
+    fi
+    if $_value_next; then
+        set -- "$@" "$_arg"
+        _value_next=false
         continue
     fi
     if $_skip_next; then
@@ -67,6 +107,15 @@ for _arg in "${_raw_args[@]}"; do
         ;;
     *)
         set -- "$@" "$_arg"
+        if [[ "$_arg" = -* ]]; then
+            _command_options=true
+            [[ "$_arg" = -h ]] && _command_help=true
+            if _takes_value "$(_flags_file "${_command_words[@]}")" "$_arg"; then
+                _value_next=true
+            fi
+        elif [[ "$_command_options" = false ]]; then
+            _command_words+=("$_arg")
+        fi
         ;;
     esac
 done
@@ -74,7 +123,7 @@ if $_skip_next; then
     echo "Option '-e' requires an argument." >&2
     _usage
 fi
-unset _raw_args _skip_next _literal_args _arg
+unset _raw_args _skip_next _literal_args _value_next _command_words _command_options _arg
 
 while getopts ":h" opt; do
     case $opt in
@@ -183,7 +232,7 @@ _find_command() {
             break
             ;;
         *)
-            sub_commands+=($arg)
+            sub_commands+=("$arg")
             ;;
         esac
     done
@@ -265,14 +314,7 @@ _run_command() {
     set +a
     arguments=("$@")
 
-    for arg in "${arguments[@]}"; do
-        [[ "$arg" = -- ]] && break
-        if [ "$arg" == "-h" ]; then
-            help=$arg
-        fi
-    done
-
-    if [ -n "$help" ]; then
+    if [[ "$_command_help" = true ]]; then
         command_file=$(basename $command_path)
         command=${command_file%.*}
         command_dir=$(dirname $command_path)

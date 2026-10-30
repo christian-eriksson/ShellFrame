@@ -234,6 +234,32 @@ assert_completion "no flags or subcommands after end-of-options" \
 assert_completion "literal option prefix does not complete flags" \
     -- arguments-cli probe -- -
 
+echo "== declared option value tests =="
+printf '%s\n' '-d ::VALUE::' '-a ::TEXT::' '-b' '-h' > "$argument_fixture/commands/probe-flags.txt"
+printf '%s\n' '-d ::VALUE::' '-a ::TEXT::' '-b' '-h' > "$argument_fixture/commands/probe-child-flags.txt"
+printf '%s\n' '-d ::VALUE::' '-a ::TEXT::' '-b' '-h' > "$argument_fixture/commands/probe-commands/child-flags.txt"
+assert_arguments "a declared value is not a global verbose flag" \
+    $'handler=probe.sh\nverbose=\n<-a>\n<-v>' probe -a -v
+assert_arguments "a declared value is not intercepted by help" \
+    $'handler=probe.sh\nverbose=\n<-a>\n<-h>' probe -a -h
+assert_arguments "a declared value is not an environment option" \
+    $'handler=child.sh\nverbose=\n<-a>\n<-eSomething>' probe child -a -eSomething
+assert_arguments "a declared value may be the marker itself" \
+    $'handler=probe.sh\nverbose=\n<-a>\n<-->\n<-b>' probe -a -- -b
+assert_arguments "a boolean does not consume unquoted trailing text" \
+    $'handler=child.sh\nverbose=\n<-d>\n<foo>\n<-b>\n<hello>\n<there>\n<peter-parker>' \
+    probe child -d foo -b hello there peter-parker
+assert_arguments "quoted trailing text retains its argument boundary" \
+    $'handler=child.sh\nverbose=\n<-d>\n<foo>\n<-b>\n<hello there peter-parker>' \
+    probe child -d foo -b 'hello there peter-parker'
+assert_arguments "boolean followed by a value option preserves spaced value" \
+    $'handler=child.sh\nverbose=\n<-b>\n<-d>\n<foo  bar>\n<hello>\n<there>' \
+    probe child -b -d 'foo  bar' hello there
+assert_completion "verbose-shaped value does not consume the verbose option" \
+    -d -b -h -e -v child -- arguments-cli probe -a -v ""
+assert_completion "marker-shaped value does not end option completion" \
+    -d -b -h -e -v child -- arguments-cli probe -a -- ""
+
 echo "== filesystem flag completion tests =="
 path_fixture="$tmp_dir/path-fixture"
 path_work="$tmp_dir/path-work"

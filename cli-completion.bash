@@ -65,9 +65,9 @@ _search_completion_file() {
 }
 
 _cli_completions() {
-    local input_array=("${COMP_WORDS[@]}")
-    local completion_hint="${input_array[-1]}"
-    unset input_array[-1]
+    local current_word="${COMP_CWORD:-$((${#COMP_WORDS[@]} - 1))}"
+    local input_array=("${COMP_WORDS[@]:0:$current_word}")
+    local completion_hint="${COMP_WORDS[@]:$current_word:1}"
 
     local commands_provided=()
     local flags_to_current_command=()
@@ -80,6 +80,10 @@ _cli_completions() {
     local e_flag_provided=false
     local v_flag_provided=false
     for word in "${input_array[@]}"; do
+        if [ -n "$flag_argument_hint" ]; then
+            flag_argument_hint=""
+            continue
+        fi
         if [[ "$word" = -- ]]; then
             end_of_options=true
             flag_argument_hint=""
@@ -117,10 +121,6 @@ $global_v_flag"
             [ -z "$flag_completions" ] && continue
             flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]}\*\? " | cut -d" " -f2-) || true
         else
-            if [ -n "$flag_argument_hint" ]; then
-                flag_argument_hint=""
-                continue
-            fi
             commands_provided+=("$word")
             flags_to_current_command=()
         fi

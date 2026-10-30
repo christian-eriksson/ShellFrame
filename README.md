@@ -436,6 +436,25 @@ If the hint is one or more pipe-separated values with no spaces, e.g. `foo|bar`
 or just a single bare value like `foo`, it is treated as an enum. The values are
 offered as real, tab-completable/cycleable completions in both `bash` and `zsh`.
 
+When using `cli.sh`, a flag with a hint consumes exactly one argument. That
+argument is forwarded unchanged, even if it is `-v`, `-eprod`, `-h` or `--`.
+A flag with no hint consumes no arguments. Keep these definitions consistent
+with the command's parser; ShellFrame does not validate the command's options.
+
+For example, with `-d ::VALUE::` and a bare `-b`, both invocations below pass
+`foo` as the value of `-d`, enable `-b`, and leave the remaining text as
+positional input to `subcmd`:
+
+```sh
+cli subcmd -d "foo" -b hello there peter-parker
+cli subcmd -d "foo" -b "hello there peter-parker"
+```
+
+The first form has three trailing arguments; the second has one. A command
+accepting trailing free text may join its positional arguments with spaces.
+ShellFrame preserves the original argument boundaries, including quoted
+spaces and newlines. It cannot recover spacing discarded by the shell.
+
 Update `one-flags.txt`:
 
 ```txt
@@ -601,7 +620,8 @@ the top level.
 
 **`-e` and `-v` are reserved and cannot be redefined by a command.** Both
 are stripped out of the argument list before your command ever runs (unless
-they follow `--`) and are not passed through as flags - a command's own
+they follow `--` or are values of declared options) and are not passed through
+as flags - a command's own
 `getopts`/flag parsing will simply never see a `-e` or `-v` the user typed,
 no matter what optstring it declares. Giving your own command's `-e`/`-v` a
 different meaning (e.g. a required `-e <NAME>` for something other than an
