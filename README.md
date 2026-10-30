@@ -523,6 +523,57 @@ this hint. The control hint needs no shell quoting. All `::NAME::` hints,
 including `::PATH::`, remain ordinary placeholders; future control hints use
 the `@complete:` namespace instead.
 
+### Free-text completion
+
+Use `@complete:text` for either **trailing input to a command** or **the value
+of a flag**. The two uses are configured in different files and have different
+completion boundaries.
+
+#### Trailing input to a command
+
+Put only `@complete:text` in the command's `{command}-completions.txt` file.
+For example, for `cli subcmd`, `commands/subcmd-completions.txt` contains:
+
+```txt
+@complete:text
+```
+
+This declares the command's positional input as free text for completion:
+
+```sh
+cli subcmd hello there peter-parker
+cli subcmd "hello there peter-parker"
+```
+
+Before positional text begins, unused options remain available. Once text
+begins, Tab offers no flags, subcommands or files, whether it is one quoted
+argument or several unquoted words. Closing the quote does not restart
+completion: subsequent words still belong to the trailing text. This setting
+also disables the default positional file completion after `--`.
+
+#### Text supplied to a flag
+
+Add `@complete:text` to the flag's entry in `{command}-flags.txt`. For example,
+`commands/subcmd-flags.txt` can declare:
+
+```txt
+-a @complete:text
+```
+
+```sh
+cli subcmd -a "additional context"
+```
+
+Tab offers no suggestions while entering the value of `-a`. Unlike trailing
+positional text, this is one option value, so quote multiword values. Once
+that value is complete and followed by a space, ordinary flag completion
+resumes. Supplying a flag's value does not start trailing positional input.
+
+Both forms work in Bash and Zsh, and the control marker is never inserted as
+text. These hints control completion, not the command's argument parser:
+the command script still parses its options and handles positional arguments.
+Commands without text metadata keep their current completion behavior.
+
 If a command has no completions file and no sub-commands directory, it is
 expected to take a free-form positional argument instead (e.g.
 `<path-to-file>`). Real filesystem paths are then offered as completions,

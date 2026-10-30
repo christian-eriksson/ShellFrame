@@ -121,6 +121,13 @@ $global_v_flag"
             [ -z "$flag_completions" ] && continue
             flag_argument_hint=$(echo "$flag_completions" | grep -e "${flags_to_current_command[-1]}\*\? " | cut -d" " -f2-) || true
         else
+            if [[ "${#commands_provided[@]}" -gt 0 ]]; then
+                local positional_completions_file=$(_search_completion_file "completions" "${commands_provided[@]}")
+                if [[ -f "$positional_completions_file" ]] && grep -qxF '@complete:text' "$positional_completions_file"; then
+                    COMPREPLY=()
+                    return 0
+                fi
+            fi
             commands_provided+=("$word")
             flags_to_current_command=()
         fi
@@ -167,6 +174,10 @@ $global_v_flag"
     fi
 
     if [ -n "$flag_argument_hint" ]; then
+        if [[ "$flag_argument_hint" = "@complete:text" ]]; then
+            COMPREPLY=()
+            return 0
+        fi
         if [ "$flag_argument_hint" = "@complete:path" ]; then
             if [ -n "$ZSH_VERSION" ]; then
                 COMPREPLY=("$flag_argument_hint")
@@ -280,7 +291,9 @@ $global_v_flag"
     fi
 
     if [ -n "$completions_file" ] && [ -f "$completions_file" ]; then
-        completions="$completions $(cat "$completions_file")"
+        if ! grep -qxF '@complete:text' "$completions_file"; then
+            completions="$completions $(cat "$completions_file")"
+        fi
         has_defined_completions=true
     fi
 

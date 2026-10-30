@@ -260,6 +260,28 @@ assert_completion "verbose-shaped value does not consume the verbose option" \
 assert_completion "marker-shaped value does not end option completion" \
     -d -b -h -e -v child -- arguments-cli probe -a -- ""
 
+echo "== free-text completion tests =="
+printf '%s\n' '-d ::VALUE::' '-a @complete:text' '-b' '-h' > "$argument_fixture/commands/probe-commands/child-flags.txt"
+printf '%s\n' '@complete:text' > "$argument_fixture/commands/probe-commands/child-completions.txt"
+assert_completion "free-text option offers no literal hint" \
+    -- arguments-cli probe child -a ""
+assert_completion "free-text option offers no flags for a dash prefix" \
+    -- arguments-cli probe child -a -
+assert_completion "flags resume after a complete text option value" \
+    -d -b -h -e -v -- arguments-cli probe child -a 'hello there' ""
+assert_completion "positional text offers no literal control marker" \
+    -d -a -b -h -e -v -- arguments-cli probe child ""
+assert_completion "unquoted trailing words stay in the text input" \
+    -- arguments-cli probe child -d foo -b hello there peter-
+assert_completion "quoted trailing text stays in the text input" \
+    -- arguments-cli probe child -d foo -b 'hello there peter-parker' ""
+assert_completion "text does not reenter option completion" \
+    -- arguments-cli probe child -b hello -
+assert_completion "text does not reenter subcommand completion" \
+    -- arguments-cli probe child -b hello child ""
+assert_completion "text after end-of-options has no path fallback" \
+    -- arguments-cli probe child -- ""
+
 echo "== filesystem flag completion tests =="
 path_fixture="$tmp_dir/path-fixture"
 path_work="$tmp_dir/path-work"
@@ -342,6 +364,24 @@ for flag in -p -s; do
         exit 1
     fi
 done
+for text_words in 'hello there' '-v'; do
+    COMP_WORDS=(arguments-cli probe child -a "$text_words")
+    words=("${COMP_WORDS[@]}")
+    CURRENT=${#words[@]}
+    actual=$(compgen -F _cli_completions -- "$text_words")
+    if [[ -n "$actual" ]]; then
+        print -r -- "Expected no free-text suggestions, got '$actual'"
+        exit 1
+    fi
+done
+COMP_WORDS=(arguments-cli probe child -b hello there "")
+words=("${COMP_WORDS[@]}")
+CURRENT=${#words[@]}
+actual=$(compgen -F _cli_completions -- "")
+if [[ -n "$actual" ]]; then
+    print -r -- "Expected no trailing text suggestions, got '$actual'"
+    exit 1
+fi
 COMP_WORDS=(path-cli history download -e local -t ./temp -p "")
 words=("${COMP_WORDS[@]}")
 CURRENT=${#words[@]}
