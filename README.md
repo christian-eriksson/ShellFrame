@@ -538,7 +538,7 @@ For example, for `cli subcmd`, `commands/subcmd-completions.txt` contains:
 @complete:text
 ```
 
-This declares the command's positional input as free text for completion:
+This declares the command's positional input as free text:
 
 ```sh
 cli subcmd hello there peter-parker
@@ -550,6 +550,19 @@ begins, Tab offers no flags, subcommands or files, whether it is one quoted
 argument or several unquoted words. Closing the quote does not restart
 completion: subsequent words still belong to the trailing text. This setting
 also disables the default positional file completion after `--`.
+
+At runtime, the first positional argument also ends ShellFrame's option and
+subcommand scanning for that command. Later words such as `-v`, `-h`, `-e`,
+or a subcommand name are forwarded literally, without enabling verbosity,
+showing help, or loading an environment. Put command options before the text:
+
+```sh
+cli subcmd -d foo Explain -v and -h flags
+```
+
+The prompt starts at `Explain`; no `--` is needed. Use `--` only when the first
+prompt word itself looks like an option. ShellFrame preserves argument boundaries
+and does not join words or evaluate the prompt.
 
 #### Text supplied to a flag
 
@@ -570,9 +583,10 @@ that value is complete and followed by a space, ordinary flag completion
 resumes. Supplying a flag's value does not start trailing positional input.
 
 Both forms work in Bash and Zsh, and the control marker is never inserted as
-text. These hints control completion, not the command's argument parser:
-the command script still parses its options and handles positional arguments.
-Commands without text metadata keep their current completion behavior.
+text. The command script still parses its own options and handles positional
+arguments. A flag-level text hint protects only that flag's value; it does not
+start positional input. Commands without text metadata keep their current
+completion and global-option behavior.
 
 ### Quoted input
 

@@ -62,12 +62,17 @@ _takes_value() {
     return 1
 }
 
-# -e/<ENVIRONMENT> and -v are CLI-wide and, unlike -h, allowed anywhere in
-# the argument list - not just before the command name - so they can be
-# combined freely with command-specific flags, e.g. 'cli command -e dev -v'
-# works the same as `cli -e dev -v command`. We extract them first, then let
-# getopts handle -h (still leading-position only, per each command's own -h
-# contract).
+_takes_text() {
+    local completions_file
+    completions_file=$(_flags_file "$@")
+    completions_file="${completions_file%flags.txt}completions.txt"
+    [[ -f "$completions_file" ]] || return 1
+    grep -qx '[[:space:]]*@complete:text[[:space:]]*' "$completions_file"
+}
+
+# Extract CLI-wide options until -- or a declared positional text input begins.
+# Commands without text metadata retain global options anywhere in their input.
+# getopts then handles leading -h, per the command's help contract.
 _raw_args=("$@")
 set --
 _skip_next=false
@@ -113,6 +118,8 @@ for _arg in "${_raw_args[@]}"; do
             if _takes_value "$(_flags_file "${_command_words[@]}")" "$_arg"; then
                 _value_next=true
             fi
+        elif _takes_text "${_command_words[@]}"; then
+            _literal_args=true
         elif [[ "$_command_options" = false ]]; then
             _command_words+=("$_arg")
         fi
@@ -225,7 +232,9 @@ _find_command() {
     [ -n "$verbose" ] && echo "searching for command: '$command'"
     arguments=("$@")
     sub_commands=()
+    local command_words=("$command")
     for arg in "${arguments[@]}"; do
+        _takes_text "${command_words[@]}" && break
         [ -z "$arg" ] && continue
         case "$arg" in
         -*)
@@ -233,6 +242,7 @@ _find_command() {
             ;;
         *)
             sub_commands+=("$arg")
+            command_words+=("$arg")
             ;;
         esac
     done

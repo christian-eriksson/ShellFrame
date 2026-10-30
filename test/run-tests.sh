@@ -211,6 +211,7 @@ assert_arguments() {
     local actual result
     actual=$(SHELLFRAME_VERBOSE= SHELLFRAME_ENVIRONMENT= arguments-cli "$@" 2>&1)
     result=$?
+    actual=$(sed -n '/^handler=/,$p' <<< "$actual")
     if [[ "$result" -eq 0 && "$actual" = "$expected" ]]; then
         echo "  PASS: $description"
         pass=$((pass + 1))
@@ -263,6 +264,41 @@ assert_completion "marker-shaped value does not end option completion" \
 echo "== free-text completion tests =="
 printf '%s\n' '-d ::VALUE::' '-a @complete:text' '-b' '-h' > "$argument_fixture/commands/probe-commands/child-flags.txt"
 printf '%s\n' '@complete:text' > "$argument_fixture/commands/probe-commands/child-completions.txt"
+printf '%s\n' 'CHILD HELP' > "$argument_fixture/commands/probe-commands/child-help.txt"
+assert_arguments "unquoted free text retains a verbose-shaped word" \
+    $'handler=child.sh\nverbose=\n<Explain>\n<-v>\n<flags>' \
+    probe child Explain -v flags
+assert_arguments "unquoted free text does not invoke help" \
+    $'handler=child.sh\nverbose=\n<Explain>\n<-h>\n<flags>' \
+    probe child Explain -h flags
+assert_arguments "unquoted free text does not load an environment" \
+    $'handler=child.sh\nverbose=\n<Explain>\n<-e>\n<missing>\n<-eprod>' \
+    probe child Explain -e missing -eprod
+assert_arguments "declared options remain active before free text begins" \
+    $'handler=child.sh\nverbose=1\n<-d>\n<value>\n<-b>\n<Explain>\n<-v>\n<-h>' \
+    probe child -v -d value -b Explain -v -h
+assert_arguments "a free-text option value does not begin positional text" \
+    $'handler=child.sh\nverbose=1\n<-a>\n<-v>' probe child -a -v -v
+assert_arguments "empty positional input still begins the free-text boundary" \
+    $'handler=child.sh\nverbose=\n<>\n<-v>\n<-h>' probe child '' -v -h
+assert_arguments "quoted positional boundaries survive later option-like words" \
+    $'handler=child.sh\nverbose=\n<first\nsecond>\n<--literal>\n<-v>\n<$(literal)>' \
+    probe child $'first\nsecond' --literal -v '$(literal)'
+printf '%s\n' '@complete:text' > "$argument_fixture/commands/probe-completions.txt"
+assert_arguments "declared text does not select an executable child command" \
+    $'handler=probe.sh\nverbose=\n<child>\n<-v>\n<-h>' probe child -v -h
+printf '%s\n' child > "$argument_fixture/commands/probe-completions.txt"
+assert_arguments "commands without text metadata retain trailing global flags" \
+    $'handler=probe.sh\nverbose=1\n<-b>\n<hello>' probe -b hello -v
+mkdir -p "$argument_fixture/commands/inline"
+cp "$argument_fixture/commands/probe.sh" "$argument_fixture/commands/inline/inline.sh"
+printf '%s\n' 'INLINE HELP' > "$argument_fixture/commands/inline/inline-help.txt"
+printf '%s\n' child > "$argument_fixture/commands/inline/inline-completions.txt"
+printf '%s\n' '@complete:text' > "$argument_fixture/commands/inline/inline-child-completions.txt"
+printf '%s\n' '-d ::VALUE::' > "$argument_fixture/commands/inline/inline-child-flags.txt"
+assert_arguments "inline subcommands honor declared values before free text" \
+    $'handler=inline.sh\nverbose=\n<child>\n<-d>\n<-v>\n<Explain>\n<-h>\n<flags>' \
+    inline child -d -v Explain -h flags
 assert_completion "free-text option offers no literal hint" \
     -- arguments-cli probe child -a ""
 assert_completion "free-text option offers no flags for a dash prefix" \
