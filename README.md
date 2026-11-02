@@ -545,9 +545,13 @@ cli subcmd hello there peter-parker
 cli subcmd "hello there peter-parker"
 ```
 
-Before positional text begins, unused options remain available. Once text
-begins, Tab offers no flags, subcommands or files, whether it is one quoted
-argument or several unquoted words. Closing the quote does not restart
+Before positional text begins, Tab offers options while required flags are
+missing. Once their values have been supplied, Tab at an empty prompt leaves
+the input unchanged. Type `-` explicitly to complete optional flags before the
+free text. Flag values retain their own completion behavior.
+
+Once text begins, Tab offers no flags, subcommands or files, whether it is one
+quoted argument or several unquoted words. Closing the quote does not restart
 completion: subsequent words still belong to the trailing text. This setting
 also disables the default positional file completion after `--`.
 
@@ -579,8 +583,9 @@ cli subcmd -a "additional context"
 
 Tab offers no suggestions while entering the value of `-a`. Unlike trailing
 positional text, this is one option value, so quote multiword values. Once
-that value is complete and followed by a space, ordinary flag completion
-resumes. Supplying a flag's value does not start trailing positional input.
+that value is complete and followed by a space, the command's normal completion
+rules resume, including the empty-prompt rule above if it declares trailing
+text. Supplying a flag's value does not start trailing positional input.
 
 Both forms work in Bash and Zsh, and the control marker is never inserted as
 text. The command script still parses its own options and handles positional

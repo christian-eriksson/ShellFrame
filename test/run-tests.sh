@@ -304,9 +304,9 @@ assert_completion "free-text option offers no literal hint" \
 assert_completion "free-text option offers no flags for a dash prefix" \
     -- arguments-cli probe child -a -
 assert_completion "flags resume after a complete text option value" \
-    -d -b -h -e -v -- arguments-cli probe child -a 'hello there' ""
-assert_completion "positional text offers no literal control marker" \
-    -d -a -b -h -e -v -- arguments-cli probe child ""
+    -d -b -h -e -v -- arguments-cli probe child -a 'hello there' -
+assert_completion "an explicit option prefix offers no literal control marker" \
+    -d -a -b -h -e -v -- arguments-cli probe child -
 assert_completion "unquoted trailing words stay in the text input" \
     -- arguments-cli probe child -d foo -b hello there peter-
 assert_completion "quoted trailing text stays in the text input" \
@@ -317,6 +317,30 @@ assert_completion "text does not reenter subcommand completion" \
     -- arguments-cli probe child -b hello child ""
 assert_completion "text after end-of-options has no path fallback" \
     -- arguments-cli probe child -- ""
+
+echo "== empty free-text prompt completion tests =="
+printf '%s\n' '-s* ::SESSION::' '-w* booking|experiments' '-h' '-r' > "$argument_fixture/commands/inline/inline-pr-prompt-flags.txt"
+printf '%s\n' '@complete:text' > "$argument_fixture/commands/inline/inline-pr-prompt-completions.txt"
+assert_completion "an empty prompt is quiet when no flags are required" \
+    -- arguments-cli probe child ""
+assert_completion "an option value does not force optional flags into an empty prompt" \
+    -- arguments-cli probe child -a 'hello there' ""
+assert_completion "missing required flags still offer options" \
+    -w -h -r -e -v -- arguments-cli inline pr prompt -s task-id ""
+assert_hint_completion "a required flag still offers its unfinished value" \
+    ::SESSION:: -- arguments-cli inline pr prompt -w experiments -s ""
+assert_completion "a required repository still offers its unfinished value" \
+    booking experiments -- arguments-cli inline pr prompt -s task-id -w ""
+assert_completion "completed required values leave the empty prompt untouched" \
+    -- arguments-cli inline pr prompt -s task-id -w teds-experiment ""
+assert_completion "reversed required flag order leaves the empty prompt untouched" \
+    -- arguments-cli inline pr prompt -w teds-experiment -s task-id ""
+assert_completion "one remaining optional flag is not inserted into the prompt" \
+    -- arguments-cli inline pr prompt -s task-id -w experiments -h -r -e test ""
+assert_completion "explicit dash still offers optional flags before the prompt" \
+    -h -r -e -v -- arguments-cli inline pr prompt -s task-id -w experiments -
+assert_completion "explicit option prefix still completes before the prompt" \
+    -r -- arguments-cli inline pr prompt -s task-id -w experiments -r
 
 echo "== filesystem flag completion tests =="
 path_fixture="$tmp_dir/path-fixture"
@@ -461,6 +485,21 @@ CURRENT=${#words[@]}
 actual=$(compgen -F _cli_completions -- "")
 if [[ -n "$actual" ]]; then
     print -r -- "Expected no trailing text suggestions, got '$actual'"
+    exit 1
+fi
+COMP_WORDS=(arguments-cli inline pr prompt -s task-id -w teds-experiment "")
+words=("${COMP_WORDS[@]}")
+CURRENT=${#words[@]}
+actual=$(compgen -F _cli_completions -- "")
+if [[ -n "$actual" ]]; then
+    print -r -- "Expected no optional flags at an empty prompt, got '$actual'"
+    exit 1
+fi
+words=(arguments-cli inline pr prompt -s task-id -w teds-experiment -)
+CURRENT=${#words[@]}
+actual=$(_cli_zsh_completions)
+if [[ "$actual" != flags ]]; then
+    print -r -- "Expected explicit optional flag completion, got '$actual'"
     exit 1
 fi
 COMP_WORDS=(path-cli history download -e local -t ./temp -p "")

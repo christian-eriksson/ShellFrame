@@ -330,7 +330,7 @@ $global_v_flag"
         local completions_directory="${completions_file%completions.txt}commands"
     fi
 
-    local has_defined_completions=false
+    local has_defined_completions=false has_text_completions=false
     if [ -n "$completions_directory" ] && [ -d "$completions_directory" ]; then
         # Nested single-command directories (commands/<name>/<name>.<ext>),
         # not to be confused with a "*-commands" sub-command dir - see
@@ -351,7 +351,9 @@ $global_v_flag"
     fi
 
     if [ -n "$completions_file" ] && [ -f "$completions_file" ]; then
-        if ! grep -qxF '@complete:text' "$completions_file"; then
+        if grep -qxF '@complete:text' "$completions_file"; then
+            has_text_completions=true
+        else
             completions="$completions $(cat "$completions_file")"
         fi
         has_defined_completions=true
@@ -367,7 +369,8 @@ $global_v_flag"
         [ "$required_flag_provided" = false ] && missing_required_flags+=("$required_flag")
     done
 
-    if [[ "$end_of_options" = true || -n "$completion_quote" ]]; then
+    if [[ "$end_of_options" = true || -n "$completion_quote" ||
+        ( "$has_text_completions" = true && "${#missing_required_flags[@]}" -eq 0 ) ]]; then
         completions=""
     fi
     local matches=($(compgen -W "$completions" -- "$completion_hint"))
